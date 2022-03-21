@@ -11,9 +11,6 @@ This model has been investigated for its symptomatic phenotype that resembles HF
 
 **Design:** Overall: 2x Control mice vs 2x hfpef mice, time points 5-6 weeks after treatment start.
 
-Project Overview: https://docs.google.com/document/d/1oSFvogHiYlhuFfhMWhfwn2UsAHQ2MFsN0yaTN8pQPYk/edit?usp=sharing
-
-
 **Analysis Workflow**
 
 Processing, QC and integration
