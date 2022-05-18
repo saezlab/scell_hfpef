@@ -156,13 +156,45 @@ calc_mean_proportions_per_group= function(seu.meta,
   merged.counts.sum= merged.counts %>%
     group_by( .data[[group.col]],
               .data[[cluster.col]],) %>%
-    summarise(mean.percent = mean(props))
+    summarise(mean.percent = mean(props),
+              median.percent = median(props))
 
 
   return(list("samplewise"= merged.counts,
               "groupwise"= merged.counts.sum))
 }
 
+
+calc_median_proportions_per_group= function(seu.meta,
+                                          cluster.col= "opt_state",
+                                          group.col= "group" ,
+                                          sample.col= "orig.ident"){
+
+  #get total cell count to scale on:
+  total.counts= seu.meta%>%
+    group_by(.data[[cluster.col]],
+             .data[[sample.col]]) %>%
+    summarise(n = n())
+
+  total.counts.sample= seu.meta%>%
+    group_by( .data[[sample.col]]) %>%
+    summarise(n.sample = n())
+
+  merged.counts= total.counts %>% left_join(total.counts.sample) %>%
+    mutate(props= n/n.sample) %>%
+    left_join(seu.meta %>% distinct(.data[[group.col]],
+                                    .data[[sample.col]]))
+
+
+  merged.counts.sum= merged.counts %>%
+    group_by( .data[[group.col]],
+              .data[[cluster.col]],) %>%
+    summarise(median.percent = median(props))
+
+
+  return(list("samplewise"= merged.counts,
+              "groupwise"= merged.counts.sum))
+}
 
 plot_mean_proportions =function(df,cluster.col = "cellstate",
                                 main= "X"){
@@ -171,8 +203,8 @@ plot_mean_proportions =function(df,cluster.col = "cellstate",
     geom_bar(stat="identity", width=.5, position = "dodge") +
     scale_fill_manual(values= hfpef_cols)+
     theme_minimal()+
-    theme(axis.text.x = element_text(size= 13, angle = 40, hjust= 1),
-          axis.text.y= element_text(size=14))
+    theme(axis.text.x = element_text(size= 11, angle = 40, hjust= 1),
+          axis.text.y= element_text(size=11))
 
   if(main != "X") {plot. = plot. +ggtitle(main)}
   return(plot.)
@@ -334,7 +366,9 @@ plot_ORA= function(Ora_res, top.marker ){
     scale_fill_gradient2(low= "white" , high= "red")+
     geom_text(mapping = aes(label= stars))+
     theme_minimal()+
+    labs(fill = "-log10(q-value)")+
     theme(axis.text.x= element_text(angle=40, hjust= 1, size= 10),
+          axis.text= element_text(color= "black"),
           axis.title = element_blank(),
           panel.border = element_rect(colour = "black", fill=NA, size=1)
     )+coord_flip()
@@ -343,3 +377,16 @@ plot_ORA= function(Ora_res, top.marker ){
 }
 
 
+
+
+
+
+# plotting_utils ------------------------------------------------------------------------------
+
+unify_axis= function(x){
+  x+
+    theme(axis.text = element_text(size= 11, color = "black"),
+          axis.title= element_text(size= 9, color= "black"),
+          legend.title = element_text(size= 11),
+          legend.text = element_text(size= 9))
+}

@@ -16,12 +16,12 @@ library(tidyverse)
 # full data set
 seu= readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
 
-source("analysis/utils.R")
+source("code/utils.R")
 
 meta_seu= seu[[]]
 
-
-# function ------------------------------------------------------------------------------------
+mean(seu$nCount_RNA)
+    # function ------------------------------------------------------------------------------------
 
 get_null= function(t= 500, x, clust_col= "cellstate", group_col= "orig.ident"){
   set.seed(4)
@@ -264,7 +264,7 @@ wrap_cell_state_int= function(meta_seu,
     filter(!!as.symbol(filer_col)== filter_val)
 
   nulls= get_null(t= t,
-                  x=  meta_seu2[c(group_col, clust.col)],
+                  x=  meta_seu2[c(group_col, clust_col)],
                   clust_col = clust_col,group_col = group_col)
   test_normality(nulls)
 
@@ -310,6 +310,7 @@ res= map(unique(meta_seu$study), function(x){
 
 
 names(res)= unique(meta_seu$study)
+
 p.val.df= map(res, function(x){
   names(x)= sort(unique(meta_seu$opt_clust_integrated))
   enframe(x, name= "int_cellstate", value= "p.val")

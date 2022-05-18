@@ -1,4 +1,4 @@
-# sc_hfpef
+# Comparison of HFpEF specific fibrotic signatures
 
 **Collaborators**:
 Laura Wienecke and Florian Leuschner. 
@@ -24,7 +24,7 @@ Cellstate definitions and Differntial gene expression
 1) harmony_integration_per_celltype.R 
 2) annotate_cellstates.R [cell states are defined ]
 3) fibroblast_state_interpretation.R
-4) DEA_per_celltype.R [HfpEF DEA per celltype]
+4) DEA_per_celltype.R [HfpEF DEA per celltype with downsampling]
 
 Functional analysis
 1) GO_enrich [Enrichment of Gene Ontology terms]

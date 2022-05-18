@@ -26,7 +26,7 @@ source("analysis/utils.R")
 
 seu.objs=  readRDS("output/seu.objs/cell.state.obj.list.rds")
 
-seu= seu.obj$fibroblasts
+seu= seu.objs$fibroblasts
 seu@meta.data= seu@meta.data%>% mutate(group_state= paste0(group,"_", cellstate))
 
 

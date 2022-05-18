@@ -17,8 +17,8 @@ library(tidyverse)
 library(decoupleR)
 library(ggrepel)
 
-source("analysis/utils.R")
-source("analysis/utils_funcomics.R")
+source("code/utils.R")
+source("code/utils_funcomics.R")
 
 ## sc data
 int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
@@ -34,6 +34,8 @@ marker=split(marker$gene, marker$cluster)
 logFCs=readRDS(file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
 names(logFCs)=c("HFpEF", "MI", "AngII")
 
+## das et.al 2019
+bulk= readRDS("data/_Hfpef_bulk_study/HF_pEF_processed.rds")
 
 ## reheat data can be downloaded https://zenodo.org/record/3797044#.XsQPMy2B2u5
 reheat= readRDS("/home/jan/R-projects/HF_meta-analysis/data/shiny/directed_ranking.rds")
@@ -136,7 +138,7 @@ re.= as.matrix(reheat)
 #ora
 #1. signatures
 #map different reheat cutoffs to perform ora with state marker
-p.= map(c(100,200, 500, 1000), function(x){
+p.= map(c(100,200, 500), function(x){
   res= run_ora(re., net,n_up = x, n_bottom = 0)
   res %>% mutate(n.reheat= x)
 })%>% do.call(rbind, .)
@@ -154,15 +156,15 @@ p.signatures.hfref = p.%>%
        y= "top n ReHeaT genes")
 
 #2. ora with state marker:
-p.= map(c(100,200, 500, 1000), function(x){
+p.= map(c(100,200, 500), function(x){
   res= ora.int.state= run_ora(re., net2,n_up = x, n_bottom = 0)
   res %>% mutate(n.reheat= x)
 })%>% do.call(rbind, .)
 
 p.states.hfref= p. %>%
-  mutate(sig= ifelse(p_value<0.01, "*", ""),
-         sig= ifelse(p_value<0.001, "**", sig),
-         sig= ifelse(p_value<0.0001, "***", sig))%>%
+  mutate(sig= ifelse(p_value<0.05, "*", ""),
+         sig= ifelse(p_value<0.01, "**", sig),
+         sig= ifelse(p_value<0.001, "***", sig))%>%
   ggplot(., aes(x= source, y= as.factor(n.reheat), fill= score))+
   geom_tile()+
   scale_fill_gradient(low= "white", high = "darkred")+
@@ -172,8 +174,6 @@ p.states.hfref= p. %>%
        y= "top n ReHeaT genes")
 
 # ORA with hfpef bulk study Das et al 2019 -----------------------------------------------------------------
-
-bulk= readRDS("data/_Hfpef_bulk_study/HF_pEF_processed.rds")
 
 #translate and prepare
 dea= bulk$DEA%>%
@@ -234,17 +234,22 @@ p.marker.hfpef= p. %>%
   geom_text(aes(label=sig))+
   theme_linedraw()+
   labs(x= "integrated fibroblast state",
-       y= "alpha")
+       y= "alpha")+
+  coord_equal()
 
 
 # plot ORA results ----------------------------------------------------------------------------
 
-p.complete= cowplot::plot_grid(p.signatures.hfref, p.states.hfref,
-                   p.signatures.hfpef, p.marker.hfpef, ncol = 2,
-                   rel_widths = c(1, 1.5),
-                   labels= "AUTO")
+p.complete= cowplot::plot_grid(p.signatures.hfref+
+                                 coord_equal(), p.states.hfref+
+                                 coord_equal(),
+                   p.signatures.hfpef+
+                     coord_equal(), p.marker.hfpef+
+                     coord_equal(), ncol = 2,
+                   rel_widths = c(1, 1.5)
+                   )
 
-pdf("output/figures/integration_studies/bulk_validation/ora_res_reheat_hfpef.pdf",
+pdf("output/figures/main/ora_res_reheat_hfpef.pdf",
     width= 7.5,
     height= 5)
 p.complete
@@ -355,6 +360,39 @@ p1
 
 
 
+# plot volcanos -------------------------------------------------------------------------------
+
+dea%>%
+  #mutate(sig.hfpef= ifelse(MGI.symbol %in% marker$`0`, "y","no" ))%>%
+  mutate(sig.hfpef= ifelse(MGI.symbol %in% gene_signatures$total$AngII, "y","no" ))%>%
+  mutate(label= ifelse(sig.hfpef=="y", MGI.symbol, ""))%>%
+  #filter(sig.hfpef=="y")%>%
+  ggplot(.,(aes(x=logFC , y= -log10(adj.P.Val), color = sig.hfpef)))+
+  geom_point(aes(alpha= 0.7))+
+  ggrepel::geom_label_repel(mapping=aes(label=label),max.overlaps = 150)
+
+p.fc= logFC.c%>%
+  left_join(dea%>% dplyr::select(-gene) %>% dplyr::rename(gene = MGI.symbol) , by= "gene")%>%
+  as_tibble()
+p.fc
+
+de_genes= p.fc %>% filter(adj.P.Val< 0.05, t>0)%>% pull(gene) %>% unique()
+
+p1= p.fc %>%
+  mutate(topr= ifelse(gene %in% de_genes, "top500", "" ),
+         label= ifelse(topr== "top500", gene, NA))%>%
+  filter(study== "AngII" & gene %in% gene_signatures$total$AngII) %>%
+  #drop_na %>%
+  ggplot(., aes( x= logFC, y= avg_log2FC, col= topr))+
+  geom_point()+
+  geom_label_repel(aes(label = label))+
+  theme_bw()+
+  scale_color_manual(values= hfpef_cols)+
+  theme(legend.position = "none")+
+  labs(x= "log2 FC (Das et. al)",
+       y= "avg_log2 FC (fibroblasts AngII")
+p1
+
 # check correlation ---------------------------------------------------------------------------
 
 x = p.fc%>%
@@ -419,10 +457,25 @@ mat= bulk$DEA
 mat= mat %>% select(gene, t)
 mat= column_to_rownames(mat, "gene")
 
-mat= bulk$vooom$E
+#mat= bulk$vooom$E
 df = decouple(mat = mat, network = net, statistics = "ulm") %>%
   mutate(    p.adj = p.adjust(p_value, method = "BH"))
 
 df %>% filter(source== "PPARA")%>% print(n=100)
 top_tf= df %>% filter(p.adj<0.05)%>% arrange(desc((score)))%>% print(n=199)# %>% #slice(1:50)%>%
   pull(source)%>% unique()
+
+
+
+
+# progeny in bulk -----------------------------------------------------------------------------
+library(progeny)
+library(ComplexHeatmap)
+  gex= bulk$vooom$E
+?run_progeny
+M.Progeny = run_progeny(gex, .label = colnames(gex), organism = "Human")
+hmap= Heatmap(t(M.Progeny), cluster_columns = T, name = "Progeny_score")
+t.vec= bulk$DEA%>% select(t)%>% as.matrix()
+rownames(t.vec)= bulk$DEA$gene
+t.progeny = run_progeny(t.vec, .label = "t.s", organism = "Human")
+hmap= Heatmap(t.progeny, cluster_columns = T, name = "Progeny_score")

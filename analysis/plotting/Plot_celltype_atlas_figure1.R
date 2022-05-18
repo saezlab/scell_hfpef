@@ -38,10 +38,10 @@ seu@meta.data= seu@meta.data %>%
 
 saveRDS(seu, "output/seu.objs/integrated_cellstate_nameupdated.rds")
 
-
+seu= readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
 
 # PLOT cell marker features: ------------------------------------------------------------------
-
+##update factor levels
 seu@meta.data= seu@meta.data %>%
   mutate(celltype  = factor(celltype,levels = c("Fibroblasts",
                                                 "Endothelial",
@@ -93,13 +93,75 @@ umap1= DimPlot(seu,
        y= "UMAP2")
 
 umap1= umap1+
-  theme(#axis.line = element_blank(),
+  theme(axis.line = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=0.5)
+        axis.title = element_text(size= 10),
+    panel.border = element_rect(colour = "black", fill=NA, size=1)
 )
 
 umap1
+
+
+
+# Compose for figure 1 ------------------------------------------------------------------------
+p.distance_ratio= readRDS("output/figures/main/p.distance_ratio_obj.rds")
+p.mean.= readRDS( "output/figures/main/proportions_obj.rds")
+p.mean.= p.mean.+theme( panel.border = element_rect(colour = "black", fill=NA, size=1))
+p1= cowplot::plot_grid(umap1+
+                     theme(line = element_blank()),
+                   #p.marker,
+                   p.mean.,
+                   #p.distance_ratio,
+                   ncol =1,
+                   rel_widths = c(1,1.5),
+                   align = "hv",
+                   axis= "lr",
+                   labels= c("C", "D", "E","F"))
+?plot_grid
+
+p2= cowplot::plot_grid(p.marker,
+                   p.distance_ratio,
+                   ncol =1,
+                   rel_widths = c(1,1.5),
+                   align = "hv",
+                   axis= "lr",
+                   rel_heights = c(1,0.6),
+                   labels= c("C", "D", "E","F"))
+
+cowplot::plot_grid(umap1,
+                   p.marker,
+
+                   ncol =2,
+                   rel_widths = c(1,1.5),
+                   align = "h",
+                   axis= "t",
+                   rel_heights = c(1,0.6),
+                   labels= c("C", "D", "E","F"))
+library(cowplot)
+
+p.mean. +theme(axis.text = element_text(size= 12, color = "black"))
+
+p.mean. = unify_axis(p.mean.)
+p.distance_ratio= unify_axis(p.distance_ratio)
+p.marker= unify_axis(p.marker)
+
+left= align_plots(umap1, p.mean., axis= "l", align ="v")
+right= align_plots(p.marker,p.distance_ratio, axis= "r", align ="v")
+top.row= plot_grid(left[[1]], right[[1]], align= "h", axis = "t", ncol = 2, rel_widths = c(1,1.4))
+bottom.row= plot_grid(left[[2]], right[[2]], align= "h", axis = "t", ncol = 2)
+
+p_comb= cowplot::plot_grid(top.row,   bottom.row,
+
+                   rel_heights = c(1.6, 1),
+                   ncol =1)
+p_comb
+#
+# plot_grid(plotlist= left, ncol= 1)
+#
+# plot_grid(umap1, p.mean., axis= "v", align ="l", ncol= 1)
+# plot_grid(p.marker, p.distance_ratio, axis= "l", align ="l", ncol= 1)
+
 # save ----------------------------------------------------------------------------------------
 
 
@@ -112,4 +174,10 @@ dev.off()
 pdf("output/figures/Celltype_marker.pdf",
     height= 5)
 p.marker
+dev.off()
+
+pdf("output/figures/main/figure_1_panel.pdf",
+    height= 8,
+    width= 10)
+p_comb
 dev.off()

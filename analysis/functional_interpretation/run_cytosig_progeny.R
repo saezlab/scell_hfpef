@@ -27,7 +27,7 @@ seu.objs= readRDS("output/seu.objs/cell.state.obj.list.rds")
 
 
 # utils:  -------------------------------------------------------------------------------------
-source("analysis/utils_funcomics.R")
+source("code/utils_funcomics.R")
 
 
 # load cytosig --------------------------------------------------------------------------------
@@ -82,9 +82,11 @@ wrap_funcs= function(seu, name, grouping2= "cellstate"){
 
 
 # run on all celltypes -----------------------------------------------------------------------------------
+state_wise=  wrap_cytosig_progeny_mlm(seu, "cellstate")
+p.state= plot_cytosig_progeny(state_wise)
+saveRDS(p.state[[2]], file= "output/figures/main/Fig2/progeny.rds")
 
 x= wrap_funcs(seu =seu.objs$fibroblasts, name= "fibroblasts")
-
 pdf("output/figures/funcomics/progeny_fibroblast_group.pdf",
         width= 3,
         height= 4)

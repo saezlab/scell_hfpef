@@ -14,8 +14,8 @@
 library(Seurat)
 library(tidyverse)
 
-source("analysis/utils.R")
-source("analysis/utils_funcomics.R")
+source("code/utils.R")
+source("code/utils_funcomics.R")
 int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
 int.fibs@meta.data %>% group_by(study, group) %>% count
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
@@ -78,7 +78,7 @@ dev.off()
 #prepare_cell state marker:
 marker = state_marker %>% group_by(cluster) %>% filter(p_val_adj<0.05,
                                                        avg_log2FC>0)%>%
-  top_n(n = 150, avg_log2FC)
+  top_n(n = 100, avg_log2FC)
 marker=split(marker$gene, marker$cluster)
 
 # ADD NABA
@@ -122,17 +122,17 @@ Ora_res= lapply(c(gene_signatures$total), function(x){
 
 p.DEG_ORA = plot_ORA(Ora_res)
 p.int.NABA= plot_ORA(Ora_res_NABA)
-plot_grid(p.int.NABA+theme(legend.position = "bottom"),
+cowplot::plot_grid(p.int.NABA+theme(legend.position = "bottom"),
           p.DEG_ORA+theme(legend.position = "bottom"))
 
-pdf(file = "output/figures/integration_studies/fibroblast.study.DEG.ORA.pdf",
+pdf(file = "output/figures/main/fibroblast.study.DEG.ORA.pdf",
     width = 4,
     height = 2)
 p.DEG_ORA
 
 dev.off()
 
-pdf(file = "output/figures/integration_studies/fibroblast.study.ECM.ORA.pdf",
+pdf(file = "output/figures/main/fibroblast.study.ECM.ORA.pdf",
     width = 5,
     height = 1.7)
 p.int.NABA
@@ -141,4 +141,65 @@ dev.off()
 
 
 
+# compare signatures within  cellstates -------------------------------------------------------
 
+int.fibs= add_geneset_scores(int.fibs,gene_signatures$total )
+
+meta= int.fibs@meta.data
+
+studies= unique(meta$study)
+map(names(gene_signatures$total), function(y){
+  map(studies, function(x){
+
+    meta%>%
+      filter(study== x)%>%
+      ggplot(., aes(x= opt_clust_integrated, y= !!as.symbol(paste0(y, "1")), fill = group ))+
+      geom_boxplot()+
+      ggtitle(x)
+  })
+})
+
+## add auroc for better comparison
+df.test= meta%>%
+  rownames_to_column(., "cellid") %>% as_tibble()%>%
+  dplyr::select(opt_clust_integrated ,HFpEF1,AngII1, MI1, cellid, study ,group)%>%
+  group_by(group, opt_clust_integrated)
+
+
+library(pROC)
+
+auc.df= lapply(unique(df.test$study) ,function(y){
+  df= sapply(sort(unique(df.test$opt_clust_integrated)) ,function(x){
+    df.test2= df.test %>% dplyr::filter(opt_clust_integrated==x, study== y)
+    hfpef.auc= auc( df.test2$group, df.test2$HFpEF1)
+    ang.auc= auc( df.test2$group, df.test2$AngII1)
+    mi.auc= auc( df.test2$group, df.test2$MI1)
+    c("HFpEF"= hfpef.auc,"AngII" =ang.auc, "MI"= mi.auc)
+    })
+  colnames(df)= sort(unique(df.test$opt_clust_integrated))
+  return(df)
+
+  })
+
+names(auc.df)= unique(df.test$study)
+auc.df
+
+library(circlize)
+col_fun = colorRamp2(c(0.5, 1), c( "white", "red"))
+hmaps= map(auc.df, function(x){
+  hmap.auroc= ComplexHeatmap::Heatmap(t(x), col = col_fun, name= "AUROC", cluster_columns = F, cluster_rows = F)
+
+})
+p.cols= t(auc.df$circ) %>% as.data.frame()%>% rownames_to_column("state")%>% pivot_longer(names_to= "set", values_to="auroc", -state)%>%
+  ggplot(aes(state, auroc, fill= set))+
+  geom_col(position = "dodge")#+
+  ylim(c(0.5, 1))
+
+p.cols
+pdf("output/figures/supp/auroc.deg.mod.fibstates_across.pdf",
+    width= 1.5,
+    height= 2)
+print(hmaps[[1]])
+print(hmaps[[2]])
+print(hmaps[[3]])
+dev.off()

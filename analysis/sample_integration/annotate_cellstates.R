@@ -68,11 +68,18 @@ seu.objs$T.cells@meta.data= seu.objs$T.cells@meta.data %>%
 
 ## Macrophages=
 seu.objs$macrophages@meta.data= seu.objs$macrophages@meta.data %>%
-  mutate(cellstate= ifelse(opt_state==0, "Ccr2-/ MhcII-/ Ly6c2-", opt_state),
-         cellstate= ifelse(opt_state==1, "Ccr2-/ MhcII-/ Lyve1+", cellstate),
-         cellstate= ifelse(opt_state==2, "Ly6C++/ Ccr2++ monocytes", cellstate),
-         cellstate= ifelse(opt_state==3, "Ccr2-/ MhcII-/ Cxcl2++", cellstate),
-         cellstate= ifelse(opt_state==4, "Cccr2+/ MhcII+", cellstate))
+  mutate(cellstate= ifelse(opt_state==0, "Ly6c2-/Itgal+ MՓ", opt_state),
+         cellstate= ifelse(opt_state==1, "Lyve1+ MՓ", cellstate),
+         cellstate= ifelse(opt_state==2, "Ccr2+/Ly6C+ Monocytes", cellstate),
+         cellstate= ifelse(opt_state==3, "Cxcl2+ MՓ", cellstate),
+         cellstate= ifelse(opt_state==4, "Ccr2+/H2-Ab+ MՓ", cellstate))%>%
+  mutate(cellstate= factor(cellstate, levels =  c("Lyve1+ MՓ",
+                                                  "Ly6c2-/Itgal+ MՓ",
+                                                  "Cxcl2+ MՓ",
+                                                  "Ccr2+/H2-Ab+ MՓ",
+                                                  "Ccr2+/Ly6C+ Monocytes"
+                                                  )))
+
 
 ## Fibroblasts=
 seu.objs$fibroblasts@meta.data= seu.objs$fibroblasts@meta.data %>%

@@ -86,6 +86,9 @@ calc_distances= function(cells, pb.de, ratios= F ){
   return(res)
 }
 
+names(pb.de)
+names(pb.de) = str_replace_all(names(pb.de), "Cd", "CD")
+names(pb.de) = str_replace_all(names(pb.de), "T.cell", "T.cells")
 cells=names(pb.de)
 cos.p= calc_distances(cells, pb.de)
 
@@ -108,8 +111,8 @@ p.distance_ratio= enframe(cos.p) %>%
                                             "Endothelial",
                                             "NK.cells",
                                             "Macrophages",
-                                            "Cd4.T.cell",
-                                            "Cd8.T.cell",
+                                            "CD4.T.cells",
+                                            "CD8.T.cells",
                                             "B.cells",
                                             "Granulocytes",
                                             "SMC/Pericytes")))
@@ -126,8 +129,9 @@ p.distance_ratio= enframe(cos.p) %>%
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1)
   )
 
-
+saveRDS(p.distance_ratio,"output/figures/main/p.distance_ratio_obj.rds")
 p.distance_ratio
+  coord_flip()
 
 # heatmap?
 enframe(cos.p) %>%

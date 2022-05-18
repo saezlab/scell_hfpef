@@ -18,7 +18,7 @@ library(ggrepel)
 library(magrittr)
 library(ComplexHeatmap)
 
-source("analysis/utils.R")
+source("code/utils.R")
 
 source('~/R-projects/sc-exploration/R-scripts/utils.R')
 # set up prior K ------------------------------------------------------------------------------

@@ -36,7 +36,7 @@ df= x %>% left_join(genemap %>% rename(GeneID= ensembl_gene_id), by= "GeneID") %
   summarise(across(everything(), sum)) %>%
   filter(hgnc_symbol!= "")
 
-target= data.frame("sample"= colnames(y), "group"= grepl(x = colnames(y), "Normal"))
+target= data.frame("sample"= colnames(df), "group"= grepl(x = colnames(df), "Normal"))
 target=target %>% mutate(group = ifelse(group, "HFpEF", "Ct"))
 
 df= column_to_rownames(df, "hgnc_symbol")
@@ -85,6 +85,7 @@ p.pval.dist= DE_results %>% ggplot(., aes(x= P.Value))+geom_histogram(bins = 100
 p.volcano= DE_results%>% ggplot(., aes(x= logFC, y= -log10(P.Value)))+
   geom_point()
 
+
 #PCA
 
 PCA <- prcomp(t(voom_count) ,center = TRUE, scale. = T)
@@ -103,6 +104,15 @@ p.pca = ggplot(plot.pca,aes(x= PC1, y= PC2,color = group))+
   ggtitle(paste0(""))+
   geom_text_repel(aes(label= sample),show.legend = FALSE)
 
+pdf("output/figures/supp/bulk_dasetal_report.pdf",
+    width= 5,
+    height= 5)
+p.pval.dist
+p.volcano
+p.pca
+dev.off()
+
+cowplot::plot_grid(p.pval.dist, p.volcano, p.pca)
 
 saveRDS(list("DEA"= DE_results,
              "counts"= df,

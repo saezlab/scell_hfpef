@@ -93,10 +93,10 @@ get_pseudobulk <- function(seurat_object,
 }
 
 
-run_progeny= function(gex.profile, .label){
+run_progeny= function(gex.profile, .label, organism= "Mouse", ...){
 
   prog.res= progeny(expr = gex.profile,
-                    organism = "Mouse",
+                    organism = organism,
                     scale =T,
                     perm= 1000,
                     z_scores =T)
@@ -178,13 +178,16 @@ plot_cytosig_progeny = function(func_res){
     ggplot(., aes(x= celltype, y= cytokine, fill = NES, label= star) )+
     geom_tile()+
     geom_text(aes(label= star))+
-    scale_fill_gradient2(low= "darkblue",mid= "white", high= "darkred")+
+    scale_fill_gradient2(low= "blue",mid= "white", high= "red")+
     theme_minimal()+
     theme(axis.text.x = element_text(size= 12, angle = 40, hjust= 1))
   library(circlize)
-  col_fun = colorRamp2(c(min(func_res$progeny ,na.rm = T), 0, max(func_res$progeny, na.rm = T)), c("darkblue", "white", "darkred"))
+  func_res$progeny= func_res$progeny[c("Col15a1+", "Igfbp3+", "Pi16+", "Cxcl1+", "Cilp+", "Wif1+"),]
+  col_fun = colorRamp2(c(min(func_res$progeny ,na.rm = T), 0, max(func_res$progeny, na.rm = T)), c("blue", "white", "red"))
 
-  Heatmap_progeny= Heatmap(t(func_res$progeny),col = col_fun,  cluster_columns = T, name = "progeny_score")
+  Heatmap_progeny= Heatmap(t(func_res$progeny),col = col_fun,  cluster_columns = F,
+                           name = "progeny_score",
+                           column_names_rot = 40,border = T)
 
   return(list(Heatmap_cytosig, Heatmap_progeny))
 }

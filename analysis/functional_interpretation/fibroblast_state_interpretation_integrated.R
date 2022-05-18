@@ -15,8 +15,9 @@ library(Seurat)
 library(tidyverse)
 library(WriteXLS)
 
+source("code/utils.R")
 integrated_data = readRDS( "output/seu.objs/study_integrations/harmony_fib_filt.rds")
-source("analysis/utils.R")
+msigDB= readRDS("data/prior_knowledge/msigDB.mouse_translated.rds")
 
 # find marker  --------------------------------------------------------------------------------
 Idents(integrated_data)= "opt_clust_integrated"
@@ -26,6 +27,7 @@ marker_int= FindAllMarkers(integrated_data, assay= "RNA", slot = "data")
 
 #save rds
 saveRDS(marker_int, "output/fib_integration/marker_list/integrated_marker.rds")
+marker_int= readRDS("output/fib_integration/marker_list/integrated_marker.rds")
 
 #save as xlss
 markers.list= split(x=marker_int, f = marker_int$cluster)
@@ -36,7 +38,7 @@ WriteXLS(markers.list,
 int.fib.marker= readRDS( "output/fib_integration/marker_list/integrated_marker.rds")
 marker.fibs= readRDS( "output/fib_integration/marker_list/local_fib_state_marker.rds")
 
-cut.off.state= 75
+cut.off.state= 100
 marker.fibs.genes= marker.fibs%>% group_by(cluster) %>%
   filter(p_val_adj <0.05,
          avg_log2FC>0)%>%
@@ -290,3 +292,102 @@ Ora_res= lapply(int.genesets, function(x){
 
 plot_ORA(Ora_res)
 
+
+# MSIG_DB -------------------------------------------------------------------------------------
+
+
+Ora_res= lapply(names(msigDB_m), function(y){
+  lapply(names(int.genesets), function(x){
+    GSE_analysis(int.genesets[[x]],msigDB_m[[y]])%>%
+      mutate(msig_group= y,
+             cluster= x)
+    })%>% do.call(rbind,. )%>% as_tibble()
+})%>% do.call(rbind,. )%>% as_tibble()
+
+Ora_res
+
+## clean names:
+#Ora_res$gset= clean_names(unlist(Ora_res$gset))
+
+
+Ora_res2= Ora_res %>%
+  distinct(gset, GeneNames, p_value, cluster)%>%
+  #rename(cluster= gset) %>%
+  mutate(corr_p_value = p.adjust(p_value, method= "BH"))%>%
+  mutate(stars= ifelse(corr_p_value<0.05, "*", ""),
+         stars= ifelse(corr_p_value<0.01, "**", stars),
+         stars= ifelse(corr_p_value<0.001, "***",stars))
+
+
+### order gene sets:
+#1 get enriched genesets per cluster
+#2 calculate jaccard distancs of enriched genes (overlap) between genesets
+#3 hclust to define similar gene set groups
+#4 plot each gene set group separately
+Ora_res2 %>% group_by(cluster)%>% filter(corr_p_value<0.001)
+Ora_res2 %>% filter(cluster==2)%>% arrange(corr_p_value) %>% print(n=100)
+
+Ora_res2 %>% group_by(gset)%>%
+  filter(any(corr_p_value<0.05))%>%
+ ggplot(., aes(x=  cluster,
+                              y= gset, fill= -log10(corr_p_value)))+
+  geom_tile()+
+  scale_fill_gradient2(low= "white" , high= "red")+
+  geom_text(mapping = aes(label= stars))+
+  facet_grid(rows=vars(msig_group))+
+  theme_minimal()+
+  labs(fill= "-log10(q-value)")+
+  theme(axis.text.x= element_text(angle=40, hjust= 1, size= 10),
+        axis.title = element_blank(),
+        axis.text= element_text(color ="black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+  )#+coord_flip()
+p.p.ora
+
+
+# test an idea for geneset correlation
+df=Ora_res2 %>% filter(cluster==2,
+            #           msig_group== "MSIGDB_HALLMARK",
+                       corr_p_value<0.01)%>% arrange(corr_p_value)
+
+df= df%>% group_by(gset)%>% mutate(corr_p_value= min(corr_p_value))%>% arrange(corr_p_value)%>% distinct(gset, .keep_all = T)
+df$GeneNames
+sets= str_split(df$GeneNames, ",")
+names= df$gset
+
+x= sets %>%
+  qdapTools::mtabulate()%>%
+  qdapTools::matrix2df("genes") %>%
+  column_to_rownames("genes")
+
+rownames(x)= names
+
+jacc.dist.phecodes=
+  dist((x), method= "binary") %>%
+  as.matrix()
+
+c.x= hclust(dist((x), method= "binary"), method = "ward.D2")
+tree_labels = cutree(c.x, k = 5) %>% as_tibble() %>% mutate(gset= c.x$labels)
+print(c.x)
+tree_labels%>% arrange(value) %>% print(n=100)
+map(unique(tree_labels$value), function(x){
+  df%>%
+    left_join(tree_labels)%>%
+      filter(value==x)%>%
+    ggplot(., aes(x=  cluster,
+                  y= gset, fill= -log10(corr_p_value)))+
+    geom_tile()+
+    scale_fill_gradient2(low= "white" , high= "red")+
+    geom_text(mapping = aes(label= stars))+
+    #facet_grid(rows=vars(value))+
+    theme_minimal()+
+    labs(fill= "-log10(q-value)")+
+    theme(axis.text.x= element_text(angle=40, hjust= 1, size= 10),
+          axis.title = element_blank(),
+          axis.text= element_text(color ="black"),
+          panel.border = element_rect(colour = "black", fill=NA, size=1)
+    )#+coord_flip()
+})
+library(ComplexHeatmap)
+p.disgenet.jacc= Heatmap(as.matrix(jacc.dist.phecodes), show_row_names = F, show_column_names = F, name= "Jaccard dist")
+p.disgenet.jacc

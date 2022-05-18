@@ -17,7 +17,7 @@ library(WriteXLS)
 library(rstatix)
 library(ggpubr)
 
-source("analysis/utils.R")
+source("code/utils.R")
 
 
 # load data and genesets ----------------------------------------------------------------------
@@ -56,7 +56,8 @@ NABA_SETS_mouse= lapply(NABA_SETS, function(set){
 
 names(NABA_SETS_mouse)= str_replace_all(names(NABA_SETS_mouse),"NABA_", "")
 names(NABA_SETS_mouse)= str_to_title(names(NABA_SETS_mouse))
-NABA_SETS_mouse
+saveRDS(NABA_SETS_mouse, "data/prior_knowledge/NABA_mouse.rds")
+NABA_SETS_mouse= readRDS( "data/prior_knowledge/NABA_mouse.rds")
 
 ## 2. Fibroblast atlas cell state marker (Buechler et. al 2021)
 
@@ -79,6 +80,30 @@ pert.genes= map(pert.marker, function(x){
   x%>% filter(p_val_adj<0.05,avg_logFC>0) %>% arrange(p_val_adj)%>% slice(1:cut.off.intmarker)  %>% pull(Gene)
 })
 
+
+#save list with multiple cutoffs for other projects:
+list.state.m= map(c(50,75,100,150), function(cut.off.intmarker){
+  stead.genes= map(stead.marker, function(x){
+    x%>% filter(p_val_adj<0.05,avg_logFC>0) %>% arrange(p_val_adj)%>% slice(1:cut.off.intmarker)  %>% pull(Gene)
+  })
+
+  pert.genes= map(pert.marker, function(x){
+    x%>% filter(p_val_adj<0.05,avg_logFC>0) %>% arrange(p_val_adj)%>% slice(1:cut.off.intmarker)  %>% pull(Gene)
+  })
+  list("steady"= stead.genes,
+       "pert"= pert.genes)
+
+})
+names(list.state.m)= paste0("top", c(50,75,100,150))
+saveRDS(list.state.m,"data/prior_knowledge/fibro_atlas_deg/cross_organ_fibro_marker.rds")
+
+target1= data.frame("states"= names(list.state.m$top50$steady),
+                   "organ"= c("Pan", "Pan", "Spleen/Lymph", "Bone", "Lung", "Artery/Tendon", "Spleen/Liver", "Intestine", "Lung", "Intestine")
+)
+target2= data.frame("states"= names(list.state.m$top50$pert),
+                   "organ"= c("Pan", "Pan", "Spleen/Lymph", "Bone", "Lung", "Artery/Tendon", "Intestine","Lung" ,"Muscle", "Panfibrosis" )
+)
+saveRDS(rbind(target1, target2), "data/prior_knowledge/fibro_atlas_deg/cross_organ_fibro_target.rds")
 
 ## 3.  DEG genes from contrast hf-ct in cell states:
 intersect= readRDS("output/DEG_downsampled_intersect_hfpef.rds")
@@ -103,7 +128,10 @@ impc= readRDS("data/prior_knowledge/IMPC_processed.rds")
 Idents(seu)= "cellstate"
 #seu=FindVariableFeatures(seu)
 marker.fibs= FindAllMarkers(seu, assay= "RNA")
+
 saveRDS(marker.fibs,  "output/fib_integration/marker_list/local_fib_state_marker.rds")
+
+marker.fibs= readRDS( "output/fib_integration/marker_list/local_fib_state_marker.rds")
 
 cut.off.state= 75
 marker.fibs.genes= marker.fibs%>% group_by(cluster) %>%
@@ -160,6 +188,8 @@ df.test= meta%>%
   rownames_to_column(., "cellid") %>% as_tibble()%>%
   select(cellstate ,up1,cellid,dn1,   group)%>%
   group_by(group, cellstate)
+
+## FC
 df.test%>%
   summarise(m.up = median(up1),
             m.dn = median(dn1))%>%
@@ -180,9 +210,8 @@ df.test2%>%
 df.test2%>%
   ggplot(aes(x= cellstate, y= stat.up))+
     geom_col()
-?wilcox_effsize
 
-wilcox_effsize(formula = df.test$group ~ df.test$up1 )
+#wilcox effect size
 
 df.list= map(unique(meta$cellstate), function(x){
   print(x)
@@ -205,17 +234,32 @@ df.list %>% ggplot(aes(x= cellstate, y= effsize, fill= magnitude))+
   geom_col()+
   scale_fill_manual(values= c("darkblue", "darkgreen", "darkorange"))+
   theme_bw()
-y= meta%>% filter(cellstate== "Wif1+")
-wilcox_test(data= y, formula = up1 ~ group)
 
-#p.dn= wilcox.test(dn1_ct,dn1_hf)$p.value)
-df.test2%>%
-  ggplot(aes(x= cellstate, y= stat.dn))+
-  geom_col()
+## AUROC
+library(pROC)
+x= "Wif1+"
+auc.df= sapply(unique(df.test$cellstate) ,function(x){
+  df.test2= df.test %>% filter(cellstate==x)
+  up.auc= auc( df.test2$group, df.test2$up1)
+  dn.auc= auc( df.test2$group, df.test2$dn1, direction =  "<")
+  c("up"= up.auc,"dn" =dn.auc)
+})
+colnames(auc.df)= unique(df.test$cellstate)
+library(circlize)
+col_fun = colorRamp2(c(0,0.5, 1), c("blue",  "white", "red"))
+hmap.auroc= ComplexHeatmap::Heatmap(t(auc.df), col = col_fun, name= "AUROC", cluster_columns = F, cluster_rows = T)
+hmap.auroc
+p.cols= t(auc.df) %>% as.data.frame()%>% rownames_to_column("state")%>% pivot_longer(names_to= "set", values_to="auroc", -state)%>%
+  ggplot(aes(state, auroc, fill= set))+
+  geom_col(position = "dodge")+
+  ylim(c(0.5, 1))
 
-df.test2
-r= wilcox.test(df.test2$up1_ct, df.test2$up1_hf)
-r$statistic
+p.cols
+pdf("output/figures/supp/auroc.deg.mod.fibstates.pdf",
+    width= 2.5,
+    height= 2)
+hmap.auroc
+dev.off()
 ## naba module scores:
 seu= add_geneset_scores(seu, NABA_SETS_mouse)
 
@@ -298,7 +342,7 @@ p.fib.overview
 # ORA  --------------------------------------------------------------
 ## func for plotting:
 
-plot_ORA=function(Ora_res ){
+plot_ORA=function(Ora_res , filter.names){
 
   for (i in names(Ora_res)){
     Ora_res[[i]] = Ora_res[[i]] %>% mutate(cluster= i)
@@ -313,6 +357,11 @@ plot_ORA=function(Ora_res ){
     mutate(cluster= factor(cluster, levels =  c("Col15a1+", "Igfbp3+",
                                                 "Pi16+","Cxcl1+","Cilp+","Wif1+")))
 
+  if (is.null(filter.names)){
+    filter.names= Ora_res2$gset
+  }
+
+  Ora_res2 = Ora_res2 %>% filter(gset %in% filter.names)
 
   p.p.ora= ggplot(Ora_res2, aes(x=  cluster,
                                y= gset, fill= -log10(corr_p_value)))+
@@ -349,13 +398,14 @@ dev.off()
 #2. NABA
 
 NABA_select= (NABA_SETS_mouse[!names(NABA_SETS_mouse) %in%
-                                c("Secreted_factors","Matrisome_associated", "Ecm_regulators", "Ecm_affiliated")])
+                                c("Secreted_factors","Matrisome", "Matrisome_associated", "Ecm_regulators", "Ecm_affiliated")])
 Ora_res= lapply(marker.fibs.genes, function(x){
-                                    GSE_analysis(geneList = x,Annotation_DB = NABA_select)
+                                    GSE_analysis(geneList = x,Annotation_DB = NABA_SETS_mouse)
 
                                   })
 
-p.ORA.naba= plot_ORA(Ora_res)
+p.ORA.naba= plot_ORA(Ora_res, filter.names = names(NABA_select))
+saveRDS(p.ORA.naba,"output/figures/main/Fig2/ecm.ora.rds")
 
 pdf("output/figures/fibroblast.NABA.pdf",
     height= 2.5,
@@ -383,6 +433,14 @@ pdf("output/figures/fibroblast.deg.hmap.pdf",
     width= 4.5)
 p.deg
 dev.off()
+
+# only hfpef gene set
+Ora_res= lapply(marker.fibs.genes, function(x){
+  GSE_analysis(geneList = x,Annotation_DB =gene_signatures$total)
+
+})
+
+p.deg= plot_ORA(Ora_res)
 
 #4.
 

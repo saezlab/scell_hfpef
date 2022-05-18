@@ -49,7 +49,8 @@ calculate_per_cluster= function(cell_state_marker,gene_signatures, top_marks = 1
                                    p_val_adj<0.05,
                                    avg_log2FC>0)%>%
         slice_max(., order_by = (avg_log2FC),n= top_marks)%>%pull(gene)
-      length(intersect(gene_signatures[[x]], marks))/top_marks
+      #length(intersect(gene_signatures[[x]], marks))/top_marks
+      length(intersect(gene_signatures[[x]], marks))/length(gene_signatures[[x]])
     })
     names(intersects)=unique(cell_state_marker$cluster)
    unlist(intersects)
@@ -88,13 +89,13 @@ p.loc= Heatmap(round(df2, 0), col = col_fun, name = "% overlap", cluster_columns
 p.loc
 p.int
 
-pdf("output/figures/integration_studies/deg.hmaps/deg_overlap_state_marker.pdf",
+pdf("output/figures/supp/deg.hmaps/deg_overlap_state_marker.pdf",
     width= 2.9,
     height= 2.5)
 p.loc
 dev.off()
 
-pdf("output/figures/integration_studies/deg.hmaps/deg_overlap_int_state_marker.pdf",
+pdf("output/figures/supp/deg.hmaps/deg_overlap_int_state_marker.pdf",
     width= 2.8,
     height= 2.5)
 p.int
@@ -104,7 +105,7 @@ dev.off()
 
 # props for DEG -------------------------------------------------------------------------------
 top_marks= 50
-calculate_per_sig= function(cell_state_marker,gene_signatures, top_marks = 100){
+  calculate_per_sig= function(cell_state_marker,gene_signatures, top_marks = 100){
 
   df=sapply(names(gene_signatures), function(x){
     #print(x)
@@ -121,33 +122,13 @@ calculate_per_sig= function(cell_state_marker,gene_signatures, top_marks = 100){
 
 }
 
-df= calculate_per_sig(cell_state_marker= loc_state_marker,gene_signatures =  gene_signatures$total, top_marks = 100)
+df= calculate_per_sig(cell_state_marker= int_state_marker,gene_signatures =  gene_signatures$total, top_marks = 100)
 
 
-calculate_per_sig= function(cell_state_marker,gene_signatures, top_marks = 100){
-
-  df=lapply(names(gene_signatures), function(x){
-    #print(x)
-    marks= cell_state_marker %>%
-      group_by(cluster)%>%
-      filter(p_val_adj<0.05,
-             avg_log2FC>0)%>%
-      slice_max(., order_by = (avg_log2FC),n= top_marks)
-
-    marks %>% filter(gene %in% gene_signatures[[x]]) %>% select(gene, cluster)
-
-
-  })
-
-
-}
 
 
 
 # calculate ratio of FCs per gene -------------------------------------------------------------
-
-
-loc_state_marker
 
 
 studieS= map(names(logFCs), function(x){
@@ -186,3 +167,4 @@ comb= marker.fibs%>% as_tibble() %>%
   mutate(r.fc=  logFC_DEG/ max_fc)%>% arrange(desc(r.fc))%>%
   drop_na() %>%
   print(n=100)
+
