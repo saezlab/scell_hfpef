@@ -180,8 +180,14 @@ p.deg.dn=  ggplot(data= meta, aes(x= cellstate, y= dn1,fill =group))+
         panel.border = element_rect(colour = "black", fill=NA, size=1)
   )
 
+p.deg.up= unify_axis(p.deg.up)+
+  theme(axis.title.x= element_blank())+
+  labs(y="Module Score")
+p.deg.dn= unify_axis(p.deg.dn)+
+  theme(axis.title= element_blank())
+p.module.scores= cowplot::plot_grid(p.deg.up, p.deg.dn, rel_widths = c(1, 1.1))
+p.module.scores
 
-p.module.scores= cowplot::plot_grid(p.deg.up, p.deg.dn, rel_widths = c(1, 1.25))
 #FeaturePlot(seu,features = intersect$fibroblasts$up[21:25], split.by = "group", keep.scale = NULL)
 
 df.test= meta%>%
@@ -247,8 +253,20 @@ auc.df= sapply(unique(df.test$cellstate) ,function(x){
 colnames(auc.df)= unique(df.test$cellstate)
 library(circlize)
 col_fun = colorRamp2(c(0,0.5, 1), c("blue",  "white", "red"))
-hmap.auroc= ComplexHeatmap::Heatmap(t(auc.df), col = col_fun, name= "AUROC", cluster_columns = F, cluster_rows = T)
+hmap.auroc= ComplexHeatmap::Heatmap((auc.df[, c("Col15a1+", "Igfbp3+", "Pi16+", "Cxcl1+","Cilp+", "Wif1+")]),
+                                    col = col_fun,
+                                    name= "AUROC",
+                                    cluster_columns = F,
+                                    cluster_rows = F,
+                                    column_names_rot = 40,
+                                    border = T,
+                                    #rect_gp = gpar(ol = "black", lty = 1),
+                                    row_names_gp = gpar(fontsize = 11),
+                                    column_names_gp = gpar(fontsize = 11))
 hmap.auroc
+
+saveRDS(list(hmap.auroc, p.module.scores), "output/figures/main/Fig2/modscores.rds")
+
 p.cols= t(auc.df) %>% as.data.frame()%>% rownames_to_column("state")%>% pivot_longer(names_to= "set", values_to="auroc", -state)%>%
   ggplot(aes(state, auroc, fill= set))+
   geom_col(position = "dodge")+

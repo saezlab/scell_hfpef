@@ -120,14 +120,29 @@ Ora_res= lapply(c(gene_signatures$total), function(x){
 })
 
 
-p.DEG_ORA = plot_ORA(Ora_res)
+Ora_res = plot_ORA2(Ora_res)
+p.DEG_ORA= ggplot(Ora_res%>% mutate(cluster = factor(cluster, levels= c("HFpEF","MI", "AngII"))), aes(x=  cluster,
+                             y= gset, fill= -log10(corr_p_value)))+
+  geom_tile()+
+  scale_fill_gradient2(low= "white" , high= "red")+
+  geom_text(mapping = aes(label= stars))+
+  theme_minimal()+
+  labs(fill = "-log10(q-value)")+
+  theme(axis.text.x= element_text(angle=40, hjust= 1, size= 10),
+        axis.text= element_text(color= "black"),
+        axis.title = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1)
+  )+
+  coord_equal()
+
+p.DEG_ORA
 p.int.NABA= plot_ORA(Ora_res_NABA)
 cowplot::plot_grid(p.int.NABA+theme(legend.position = "bottom"),
           p.DEG_ORA+theme(legend.position = "bottom"))
 
-pdf(file = "output/figures/main/fibroblast.study.DEG.ORA.pdf",
-    width = 4,
-    height = 2)
+pdf(file = "output/figures/main/Fig3/fibroblast.study.DEG.ORA.pdf",
+    width = 3,
+    height = 3)
 p.DEG_ORA
 
 dev.off()

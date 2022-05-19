@@ -16,7 +16,7 @@ library(Seurat)
 library(tidyverse)
 library(WriteXLS)
 
-source("analysis/utils.R")
+source("code/utils.R")
 
 # load sc data
 seu.objs=  readRDS("output/seu.objs/cell.state.obj.list.rds")
@@ -206,19 +206,20 @@ umap1= DimPlot(integrated_data,
   ggtitle("")+
   labs(x= "UMAP1",
        y= "UMAP2")+
-  theme(#axis.line = element_blank(),
-    legend.text=element_text(size=16),
-    axis.title= element_text(size= 14),
+  theme(axis.line = element_blank(),
+    legend.text=element_text(size=11),
+    axis.title= element_text(size= 9),
     axis.text = element_blank(),
     axis.ticks = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=0.5)
+    panel.border = element_rect(colour = "black", fill=NA, size=1),
+    plot.margin = unit(c(-1, -1, -1, -1), "cm"))
   )
 
 umap1
 #cols= c("#EF946C", "#785474", "#AF1B3F","#77B6EA","#66B3BA","#ab87a6", "#66B3BA","#848FA5", "#58B09C", "#AF1B3F")
 umap.disease= DimPlot(integrated_data,
                group.by= "group",
-               pt.size = 0.1,
+               pt.size = 0.01,
                #cols = sample(col_vector, 50 ,replace = F),
                cols= hfpef_cols,
                label = F,
@@ -229,12 +230,13 @@ umap.disease= DimPlot(integrated_data,
   ggtitle("")+
   labs(x= "UMAP1",
        y= "UMAP2")+
-  theme(#axis.line = element_blank(),
+  theme(axis.line = element_blank(),
     axis.text = element_blank(),
-        legend.text=element_text(size=22),
-    axis.title= element_text(size= 14),
+        legend.text=element_text(size=11),
+    axis.title= element_text(size= 9),
     axis.ticks = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=0.5)
+    panel.border = element_rect(colour = "black", fill=NA, size=1),
+    plot.margin = unit(c(-1, -1, -1, -1), "cm")
   )
 umap.disease
 
@@ -244,25 +246,41 @@ umap.study= DimPlot(integrated_data,
                cols= c(col_vector[2], col_vector[3], col_vector[1]),
                label = F,
                label.size = 4,
-               label.col= "black",order = rev(c("MI", "AngII", "HFpEF"))
+               pt.size = 0.01,
+               label.col= "black",
+               order = rev(c("MI", "AngII", "HFpEF"))
 )+
   #NoLegend()+
   ggtitle("")+
   labs(x= "UMAP1",
        y= "UMAP2")+
-  theme(#axis.line = element_blank(),
+  theme(axis.line = element_blank(),
     axis.text = element_blank(),
 
-    legend.text=element_text(size=22),
-    axis.title= element_text(size= 14),
+    legend.text=element_text(size=11),
+    axis.title= element_text(size= 9),
     axis.ticks = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=0.5)
+    panel.border = element_rect(colour = "black", fill=NA, size=1),
+    plot.margin = unit(c(-1, -1, -1, -1), "cm")
   )
 umap.study
+#
+# saveRDS(list(umap.disease, umap.study, umap1), "output/figures/main/Fig3/")
+p.c= cowplot::plot_grid(
+                        umap.disease,#+coord_equal(),
+                        umap.study,#+coord_equal(),
+                        NULL,
+                        umap1,#+coord_equal(),
+                        rel_heights = c(1,  1),
+                        ncol = 2,
+                        align="hv",
+                        axis= "tplr")
+p.c
+pdf("output/figures/main/Fig3/fib_integrated_umaps.pdf",
+    height= 9, width= 9)
+p.c
+dev.off()
 
-p.c= cowplot::plot_grid(umap1+coord_equal(),
-                        umap.disease+coord_equal(),
-                        umap.study+coord_equal())
 pdf("output/figures/main/fib_integrated_umaps.pdf",
     height= 6, width= 6)
 umap1+coord_equal()

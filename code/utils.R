@@ -348,7 +348,7 @@ GSE_analysis = function(geneList,Annotation_DB){
 }
 
 # function to plot ORA results:
-plot_ORA= function(Ora_res, top.marker ){
+plot_ORA= function(Ora_res, top.marker , flip =T){
 
   for (i in names(Ora_res)){
     Ora_res[[i]] = Ora_res[[i]] %>% mutate(cluster= i)
@@ -371,12 +371,24 @@ plot_ORA= function(Ora_res, top.marker ){
           axis.text= element_text(color= "black"),
           axis.title = element_blank(),
           panel.border = element_rect(colour = "black", fill=NA, size=1)
-    )+coord_flip()
+    )
+  if(flip){p.p.ora= p.p.ora+coord_flip()}
   p.p.ora
   return(p.p.ora)
 }
 
+plot_ORA2= function(Ora_res, top.marker){
 
+  for (i in names(Ora_res)){
+    Ora_res[[i]] = Ora_res[[i]] %>% mutate(cluster= i)
+  }
+
+  Ora_res= as_tibble(do.call(rbind, Ora_res))%>%
+    #dplyr::rename(cluster= gset) %>%
+    mutate(stars= ifelse(corr_p_value<0.05, "*", ""))
+
+
+}
 
 
 

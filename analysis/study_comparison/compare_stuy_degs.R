@@ -56,33 +56,49 @@ Hmaps.U= map(gene_signatures$unique, function(x){
   df= logFC.c %>% filter(gene %in% x) %>% select(-pct.1, -pct.2)%>%
     pivot_wider(names_from = study, values_from= avg_log2FC)
   df= column_to_rownames(df, "gene")
-  Heatmap(df, col= col_fun, name= "avg_log2FC")
+  Heatmap(df[,], col= col_fun, name= "avg_log2FC",
+          cluster_columns = F,
+          column_names_rot = 40,
+          border = T,
+          #rect_gp = gpar(ol = "black", lty = 1),
+          row_names_gp = gpar(fontsize = 10),
+          column_names_gp = gpar(fontsize = 10))
 })
 
 Hmaps.O= map(gene_signatures$overlap, function(x){
   df= logFC.c %>% filter(gene %in% x) %>% select(-pct.1, -pct.2)%>%
     pivot_wider(names_from = study, values_from= avg_log2FC)
   df= column_to_rownames(df, "gene")
-  Heatmap(df, col= col_fun, name= "avg_log2FC")
+  Heatmap(df, col= col_fun, name= "avg_log2FC",   cluster_columns = F,
+          column_names_rot = 40,
+          border = T,
+          #rect_gp = gpar(ol = "black", lty = 1),
+          row_names_gp = gpar(fontsize = 10),
+          column_names_gp = gpar(fontsize = 10))
 })
 
-pdf("output/figures/integration_studies/deg.hmaps/HFPEF.sig.pdf",
+pdf("output/figures/main/Fig3/HFPEF.sig.pdf",
     width= 3,
     height= 8)
 Hmaps.U[1]
 dev.off()
-pdf("output/figures/integration_studies/deg.hmaps/Ang.sig.pdf",
+
+pdf("output/figures/main/Fig3/Ang.sig.pdf",
     width= 3,
     height= 4.6)
 Hmaps.U[3]
 dev.off()
 
-pdf("output/figures/integration_studies/deg.hmaps/Fibro_all.pdf",
+pdf("output/figures/main/Fig3/Fibro_all.pdf",
     width= 3,
     height= 3)
 Hmaps.O[1]
 dev.off()
 
+x= grid.grabExpr(draw(Hmaps.U[[1]], padding = unit(c(0, 0, 0, 0), "mm")))
+x1= grid.grabExpr(draw(Hmaps.U[[3]], padding = unit(c(0, 0, 0, 0), "mm")))
+x2= grid.grabExpr(draw(Hmaps.O[[1]], padding = unit(c(0, 0, 0, 0), "mm")))
+plot_grid(x,x1,x2, nrow= 1)
 # save heatmaps -------------------------------------------------------------------------------
 
 

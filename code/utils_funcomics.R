@@ -185,9 +185,15 @@ plot_cytosig_progeny = function(func_res){
   func_res$progeny= func_res$progeny[c("Col15a1+", "Igfbp3+", "Pi16+", "Cxcl1+", "Cilp+", "Wif1+"),]
   col_fun = colorRamp2(c(min(func_res$progeny ,na.rm = T), 0, max(func_res$progeny, na.rm = T)), c("blue", "white", "red"))
 
-  Heatmap_progeny= Heatmap(t(func_res$progeny),col = col_fun,  cluster_columns = F,
+    Heatmap_progeny= Heatmap(t(func_res$progeny),
+                             col = col_fun,
+                             cluster_columns = F,
                            name = "progeny_score",
-                           column_names_rot = 40,border = T)
+                           column_names_rot = 40,
+                           border = T,
+                           #rect_gp = gpar(ol = "black", lty = 1),
+                           row_names_gp = gpar(fontsize = 10),
+                           column_names_gp = gpar(fontsize = 10))
 
   return(list(Heatmap_cytosig, Heatmap_progeny))
 }

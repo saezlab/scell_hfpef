@@ -20,7 +20,6 @@ degs= fib$total$hfpef
 
 
 
-
 # Anovas for cell state label ------------------------------------------------------------
 
 #get normalized expr data
@@ -102,12 +101,41 @@ fib$overlap$all
 df.aov[,1]
 
 library(fgsea)
+##load genesets:
+naba= readRDS("data/prior_knowledge/NABA_mouse.rds")
+
+## use metabolic network from COSMOS to annotate genes involved in metabolism
+load("data/prior_knowledge/meta_network.RData")
+genes= unique(c(meta_network$source, meta_network$target))
+
+View(meta_network)
+gene_translate= readRDS("data/prior_knowledge/gene_translate.rds")
+
+metabs <- meta_network[grepl("Metab__HMDB", meta_network$source) | grepl("Metab__HMDB", meta_network$target),]
+metabs <- metabs[,-2]
+metabs <- metabs[grepl("Gene", metabs$source) | grepl("Gene", metabs$target),]
+
+metabs_reactant <- metabs[grepl("Metab__HMDB",metabs$source),]
+metabs_products <- metabs[grepl("Metab__HMDB",metabs$target),]
+
+names(metabs_reactant) <- c("metab","gene")
+names(metabs_products) <- c("gene","metab")
+
+metabs <- as.data.frame(rbind(metabs_reactant, metabs_products))
+metabs$gene <- gsub("Gene.*__","",metabs$gene)
+metabs$metab <- gsub("_[a-z]$","",metabs$metab)
+metabs$metab <- gsub("Metab__","",metabs$metab)
+str_to_title(metabs$gene)
+m.genes= gene_translate %>% filter(Gene.name %in% metabs$gene)%>% pull(MGI.symbol)
 
 fgseaSimple(pathways= list("fibrosis_core"= fib$overlap$all,
                            "BM"= naba$Basement_membranes) ,stats= df.aov[,1], nperm= 1000 )
 p1= fgsea::plotEnrichment(pathway= fib$overlap$all, stats= df.aov[,1])
 p2= fgsea::plotEnrichment(pathway= naba$Basement_membranes, stats= df.aov[,1])
+p3= fgsea::plotEnrichment(pathway=str_to_title(metabs$gene), stats= df.aov[,1])
+df.aov[rownames(df.aov) %in% str_to_title(metabs$gene),]
 
+df.aov[m.genes,1]
 cowplot::plot_grid(p1+ggtitle("shared fibrosis"),
                    p2+ggtitle("BM"))
 

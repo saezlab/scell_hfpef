@@ -39,6 +39,7 @@ ggplot(cytosig_net, aes(x= cytokine, y= weight))+
 #capitalize network for quick check in mouse :
 library(stringr)
 cytosig_net$target = str_to_title(cytosig_net$target)
+cytosig_net %>% filter(cytokine== "IL3") %>% print(n=100)
 
 # run on cell type/states----------------------------------------------------------------------------
 seu= seu.objs$fibroblasts
@@ -82,7 +83,7 @@ wrap_funcs= function(seu, name, grouping2= "cellstate"){
 
 
 # run on all celltypes -----------------------------------------------------------------------------------
-state_wise=  wrap_cytosig_progeny_mlm(seu, "cellstate")
+state_wise=  wrap_cytosig_progeny_mlm(hfpef = seu, ident. = "cellstate")
 p.state= plot_cytosig_progeny(state_wise)
 saveRDS(p.state[[2]], file= "output/figures/main/Fig2/progeny.rds")
 

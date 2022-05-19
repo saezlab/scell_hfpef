@@ -285,13 +285,13 @@ dev.off()
 ##4 marker compar
 
 Ora_res= lapply(int.genesets, function(x){
-  GSE_analysis(x, local.genesets)
+  GSE_analysis(x, c(local.genesets,gene_signatures$total) )
 
 })
 
 
-plot_ORA(Ora_res)
-
+marker.comp= plot_ORA(Ora_res)
+saveRDS(marker.comp, "output/figures/main/Fig3/marker.comp.rds")
 
 # MSIG_DB -------------------------------------------------------------------------------------
 

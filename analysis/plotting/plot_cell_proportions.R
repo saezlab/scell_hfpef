@@ -108,8 +108,11 @@ p.fibs=p.mean +
   ) +
   ylim(c(0,0.5))+
   ggtitle("")+
-  theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
         axis.text = element_text(color= "black"))
+
+saveRDS(p.fibs, "output/figures/main/Fig2/props.rds")
+
 pdf("output/figures/main/cellstate_fibs_proportions.pdf",
     width = 5,
     height= 4)
@@ -166,7 +169,7 @@ df= map(unique(meta_seu$study), function(x){
 
 df.fc= lapply(df, function(x){
 x$groupwise %>%pivot_wider(names_from=group , values_from= mean.percent, -median.percent)%>%
-  mutate(fc = hf/ct)
+  mutate(fc = hf-ct)
 
 })
 names(df.fc)= c("AngII", "HFpEF", "MI")
@@ -189,20 +192,27 @@ p.val.df= p.val.df%>%
 
 p.fc.proportion= df.fc %>%
   left_join(p.val.df, by= c("study", "opt_clust_integrated"))%>%
+mutate(study= factor(study, levels=c("HFpEF", "MI", "AngII")))%>%
   ggplot(., aes(x= study, y= opt_clust_integrated, fill= fc))+
   geom_tile()+
   #geom_text(mapping=aes(label= round(p.val,2))  )+
   geom_text(mapping=aes(label= sig))+
   scale_fill_gradient2(low= "blue", mid= "white",
-                      high= "red", midpoint = 1)+
-  theme_dark()+
+                      high= "red", midpoint = 0)+
   theme(axis.text = element_text(color= "black"),
-        axis.text.x=element_text(angle= 40, hjust= 1))+
+        axis.text.x=element_text(angle= 40, hjust= 1),
+        panel.border = element_rect(colour = "black", fill=NA, size=1))+
   coord_equal()+
-    labs(x= "", y= "integrated cell state")
+    labs(x= "", y= "integrated cell state",
+         fill= "composition \n difference ")
 p.fc.proportion
-pdf("output/figures/supp/proportion_change_fc.pdf",
+
+
+pdf("output/figures/main/Fig3/proportion_change_fc.pdf",
     width =4,
     height= 3)
 p.fc.proportion
 dev.off()
+
+
+ggplot(df.fc, aes(x= study, y= ))

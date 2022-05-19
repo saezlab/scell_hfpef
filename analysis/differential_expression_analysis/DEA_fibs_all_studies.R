@@ -14,7 +14,7 @@
 library(Seurat)
 library(tidyverse)
 library(ggvenn)
-
+source("code/utils.R")
 # circ=
 circ= readRDS( file = "../sc-exploration/output/circ_obj/fibroblasts_seu.rds")
 DefaultAssay(circ)= "RNA"
@@ -222,6 +222,17 @@ gene_signatures= list("unique"= list("HFpEF"= HFpEF_unique_sig,
 saveRDS(gene_signatures, "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 
+source("analysis/utils.R") #load for col_vector
+venn.up = ggvenn(list("MI"= gene_signatures$total$MI,
+                   "HFpEF"= gene_signatures$total$HFpEF,
+                   "AngII" = gene_signatures$total$AngII), fill_color = c(col_vector[2], col_vector[1], col_vector[3]), show_percentage = F,fill_alpha = 0.6, text_size = 4, set_name_size = 5)
+venn.up
+
+pdf("output/figures/main/Fig3/deg.venns.pdf",
+    width= 4,
+    height=3)
+venn.up
+dev.off()
 
 
 
@@ -274,6 +285,11 @@ df= map(objs, function(x){
 })
 
 saveRDS(df, file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
+
+df=readRDS( file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
+
+
+
 #
 # mean_exp= map(objs, function(x){
 #   Idents(x)= "group"
