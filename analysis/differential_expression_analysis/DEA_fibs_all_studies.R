@@ -62,8 +62,7 @@ get_subsampled_DEG= function(seu, seed, genes.to.test=NULL, prefilter= T){
 
   cell.count= seu@meta.data %>%rownames_to_column("cellid") %>%
     group_by(orig.ident) %>%
-    count()
-
+    dplyr::count()
 
   random.cell.ids= map(orig.ids , function(x){
     df= seu@meta.data%>% filter(orig.ident== x)
@@ -221,7 +220,7 @@ gene_signatures= list("unique"= list("HFpEF"= HFpEF_unique_sig,
 
 saveRDS(gene_signatures, "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
-
+saveRDS(hfpef_f, "output/fib_integration/marker_list/DEG_hfpef.rds")
 source("analysis/utils.R") #load for col_vector
 venn.up = ggvenn(list("MI"= gene_signatures$total$MI,
                    "HFpEF"= gene_signatures$total$HFpEF,

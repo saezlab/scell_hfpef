@@ -32,8 +32,8 @@ gene_translate= readRDS( "data/prior_knowledge/gene_translate.rds")
 
 # data prep -----------------------------------------------------------------------------------
 
-clean_names= function(string){
-  clean.names= lapply(strsplit(string, "_" ),function(x){
+clean_names= function(string2){
+  clean.names= lapply(strsplit(string2, "_" ),function(x){
     #print(x)
     xy= x[2:length(x)]
     #print(xy)
@@ -170,10 +170,6 @@ p.msig
 dev.off()
 
 
-msigDB_m$MSIGDB_HMARKS[grepl("Angptl4", msigDB_m$MSIGDB_HMARKS)]
-length(msigDB_m$MSIGDB_REACTOME)
-
-
 # TFs -----------------------------------------------------------------------------------------
 
 library(dorothea)
@@ -212,23 +208,24 @@ p.TFs= df %>% group_by(condition)%>%
   filter(statistic== "ulm")
 
 p.pTFS = p.TFs %>%distinct(condition, source, score, sig)%>%
+  mutate(condition=factor(condition, levels= c("HFpEF", "MI", "AngII")) )%>%
   ggplot(., aes(x= condition, y= source, fill = score))+
   geom_tile()+
   geom_text(aes(label= sig))+
-  scale_fill_gradient2(low= "blue", mid= "white", high= "darkred")+
+  scale_fill_gradient2(low= "blue", mid= "white", high= "red")+
   theme_minimal()+
   theme(axis.text= element_text(color= "black"),
-        panel.border = element_rect(colour = "black",fill=NA, size=0.5),
+        panel.border = element_rect(colour = "black",fill=NA, size=1),
         axis.text.x=element_text(angle= 40, hjust= 1))+
   labs(x= "", y= "", fill = "TF activity")+
   coord_equal()
 
 p.pTFS
-
-pdf("output/figures/main/TF_study_wise.pdf",
+unify_axis(p.pTFS)
+pdf("output/figures/main/Fig4/TF_study_wise.pdf",
     height= 5,
     width= 7)
-p.pTFS
+unify_axis(p.pTFS)
 dev.off()
 
 
@@ -255,11 +252,23 @@ gex= as.matrix(column_to_rownames(as.data.frame(gex), "gene"))
 M.Progeny = run_progeny(gex, .label = colnames(gex))
 
 hmap= Heatmap(t(M.Progeny), cluster_columns = F, name = "Progeny_score")
-pdf("output/figures/main/progeny_study_contrast.pdf",
-    width= 3.2,
+hmap= Heatmap(t(M.Progeny),cluster_rows = T,
+
+        cluster_columns = F,
+        name = "progeny \n score",
+        column_names_rot = 40,
+        border = T,
+        #rect_gp = gpar(ol = "black", lty = 1),
+        row_names_gp = gpar(fontsize = 10),
+        column_names_gp = gpar(fontsize = 10))
+
+pdf("output/figures/main/Fig4/progeny_study_contrast.pdf",
+    width= 2.6,
     height= 4)
 print(hmap)
 dev.off()
+
+
 # gset plot -----------------------------------------------------------------------------------
 genes= msigDB_m$MSIGDB_CANONICAL$PID_INTEGRIN1_PATHWAY
 PID_INTEGRIN1_PATHWAY
@@ -327,7 +336,7 @@ names(trees)= studies
 plot(trees$HFpEF$.tree, labels = F)
 
 hfpef= map(unique(trees$HFpEF$resolutions.$res.7), function(x){
-  msig_sigs%>%
+   msig_sigs%>%
     left_join(trees$HFpEF$resolutions.)%>%
     filter(res.7==x)%>%
     mutate(#gset= factor(gset, levels= rev(plot_set)),
@@ -335,14 +344,15 @@ hfpef= map(unique(trees$HFpEF$resolutions.$res.7), function(x){
       sig= ifelse(corr_p_value<0.01, "**", sig),
       sig= ifelse(corr_p_value<0.001, "***", sig),
       gset= clean_names(gset))%>%
+    mutate(study= factor(study, levels= c("HFpEF", "MI", "AngII")))%>%
     ggplot(., aes(x=  study,
                   y= gset, fill= -log10(corr_p_value)))+
     geom_tile()+
     scale_fill_gradient2(low= "white" , high= "red" )+
     # scale_fill_gradientn(colors= c("white", "red"),
-    #                      breaks=c(0,2,4,6,8,10),#labels=c("Minimum",0.5,"Maximum"),
+    #                       breaks=c(0,2,4,6,8,10),#labels=c("Minimum",0.5,"Maximum"),
     #                      limits=c(0,10))+
-    geom_text(mapping = aes(label= sig))+
+     geom_text(mapping = aes(label= sig))+
     #facet_grid(rows=vars(value))+
     theme_minimal()+
     labs(fill= "-log10(q-value)")+
@@ -350,7 +360,7 @@ hfpef= map(unique(trees$HFpEF$resolutions.$res.7), function(x){
           axis.title = element_blank(),
           axis.text= element_text(color ="black"),
           panel.border = element_rect(colour = "black", fill=NA, size=1)
-    )+coord_equal()
+    )#+coord_equal()
 })
 
 
@@ -363,6 +373,7 @@ angii= map(unique(trees$AngII$resolutions.$res.7), function(x){
       sig= ifelse(corr_p_value<0.01, "**", sig),
       sig= ifelse(corr_p_value<0.001, "***", sig),
       gset= clean_names(gset))%>%
+    mutate(study= factor(study, levels= c("HFpEF", "MI", "AngII")))%>%
     ggplot(., aes(x=  study,
                   y= gset, fill= -log10(corr_p_value)))+
     geom_tile()+
@@ -375,14 +386,14 @@ angii= map(unique(trees$AngII$resolutions.$res.7), function(x){
           axis.title = element_blank(),
           axis.text= element_text(color ="black"),
           panel.border = element_rect(colour = "black", fill=NA, size=1)
-    )+coord_equal()
+    )#+coord_equal()
 })
 legend_b <- get_legend(
   hfpef[[2]]
 )
 p.1= cowplot::plot_grid(#hfpef[[1]]+ theme(legend.position = "none"),
-                   hfpef[[7]]+ theme(legend.position = "none",
-                                     axis.text.x= element_blank()),
+                    hfpef[[7]]+ theme(legend.position = "none",
+                                      axis.text.x= element_blank()),
                    hfpef[[3]]+ theme(legend.position = "none",
                                      axis.text.x= element_blank()),
                    hfpef[[5]]+ theme(legend.position = "none",
@@ -391,14 +402,21 @@ p.1= cowplot::plot_grid(#hfpef[[1]]+ theme(legend.position = "none"),
                                        axis.text.x= element_blank()),
                    angii[[4]] + theme(legend.position = "none",
                                       axis.text.x= element_blank()),
-                   align= "v", axis= "l", ncol = 1, rel_heights = c(1,1.3,0.9, 1, 0.8))
+                   align= "v", axis= "lr", ncol = 1, rel_heights = c(1,1.3,0.9, 1, 0.8))
 p.1
+
 p.2= plot_grid(p.1, legend_b, rel_widths = c(1,0.3))
-pdf("output/figures/supp/msig.hmaps/msig.hfpef_all.pdf",
-    width= 8,
+pdf("output/figures/main/Fig4/msig.hfpef_all.pdf",
+    width= 6.5,
     height= 5)
 p.2
 dev.off()
+pdf("output/figures/main/Fig4/msig.hfpef_all2.pdf",
+    width= 5,
+    height= 2)
+hfpef[[1]]
+dev.off()
+
 
 
 hfpef[[3]]

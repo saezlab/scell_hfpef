@@ -160,9 +160,9 @@ gex.mac= FoldChange(subset(seu, idents = c("Macrophages")),
 
 # we focus on macrophage -> fibroblast activation in HFpEF
 top_LR = liana_res$mac.fibs%>%
-  filter(hf_score >0.8)%>%
-  arrange(desc(hf_score))%>%
-  top_n(n= 40, hf_score)
+  filter(hf_score >0.9)%>%
+  arrange(desc(hf_score))#%>%
+  #top_n(n= 40, hf_score)
 hist(top_LR$hf_score)
 L= top_LR %>% pull(ligand)%>% unique()
 R= top_LR %>% pull(receptor)%>% unique()
@@ -171,23 +171,24 @@ R= top_LR %>% pull(receptor)%>% unique()
 fibs.candidates=  gex.fib%>%
   rownames_to_column("gene")%>%
   filter(gene %in% R,
-         pct.1>0.1)%>%
+         pct.1>0.1,
+         avg_log2FC>0)%>%
   pull(gene)
 
 macs.candidates= gex.mac%>%
   rownames_to_column("gene")%>%
   filter(gene %in% L,
-         pct.1>0.05,
+         pct.1>0.15,
          avg_log2FC>0.1)%>%
   pull(gene)
 
 
 ##
 
-# we focus on macrophage -> fibroblast activation in HFpEF
+#  fibroblast -> mac activation in HFpEF
 top_LR = liana_res$fib.mac%>%
-  filter(hf_score >=0.8)%>%
-  arrange(desc(hf_score))%>%
+  filter(hf_score >=0.9)%>%
+  arrange(desc(hf_score))#%>%
   top_n(n= 40, hf_score)
 
 L= top_LR %>% pull(ligand)%>% unique()
@@ -211,4 +212,4 @@ cand= list("FM"= list("l"= lig.candidates,
                       "r"= rec.candidataes),
            "MF"= list("l"= macs.candidates,
                       "r" = fibs.candidates))
-saveRDS(cand, file= "output/funcomics_res/liana_candidates_MF.rds")
+saveRDS(cand, file= "output/liana_candidates_MF.rds")

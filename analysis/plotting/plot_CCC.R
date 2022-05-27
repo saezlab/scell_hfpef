@@ -13,9 +13,10 @@
 library(cowplot)
 library(tidyverse)
 library(Seurat)
+library(igraph)
 
 liana_res= readRDS("output/liana_combined_results.rds")
-candidates= readRDS( file= "output/funcomics_res/liana_candidates_MF.rds")
+candidates= readRDS( file= "output/liana_candidates_MF.rds")
 seu= readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
 
 
@@ -89,24 +90,6 @@ p.aggregate.rank
 
 # we focus on macrophage -> fibroblast activation in HFpEF
 
-#get top LR pairs
-top_LR_mf = liana_res$mac.fibs%>%
-  filter(hf_score >0.9)%>%
-  arrange(desc(hf_score))%>%
-  top_n(n= 30, hf_score)
-
-Lmf= top_LR_mf %>% pull(ligand)%>% unique()
-Rmf= top_LR_mf %>% pull(receptor)%>% unique()
-
-#get top LR pairs
-top_LR_fm = liana_res$fib.mac%>%
-  filter(hf_score >0.9)%>%
-  arrange(desc(hf_score))%>%
-  top_n(n= 30, hf_score)
-Lfm= top_LR_fm %>% pull(ligand)%>% unique()
-Rfm= top_LR_fm %>% pull(receptor)%>% unique()
-
-
 # plot L R genes to check for de.
 plot_dots= function(L,
                     R,
@@ -146,8 +129,8 @@ plot_dots= function(L,
 
 
 #leg <- get_legend(fm)
-fm= plot_dots(Lfm , Rfm, seu, sender= "Fibroblasts", receiver = "Macrophages")
-mf= plot_dots(Lmf , Rmf, seu,receiver= "Fibroblasts", sender = "Macrophages")
+fm= plot_dots(candidates$FM$l ,  candidates$FM$r, seu, sender= "Fibroblasts", receiver = "Macrophages")
+mf= plot_dots(candidates$MF$l , candidates$MF$r, seu,receiver= "Fibroblasts", sender = "Macrophages")
 dot.expression= plot_grid(fm , mf, ncol =1)
 
 pdf("output/figures/funcomics/liana_dotplot_exprs_top25.pdf",
@@ -155,6 +138,14 @@ pdf("output/figures/funcomics/liana_dotplot_exprs_top25.pdf",
     width= 6)
 dot.expression
 dev.off()
+
+pdf("output/figures/supp/liana_dotplot_exprs_top25.pdf",
+    heigh= 11,
+    width= 6)
+mf
+dev.off()
+
+Idents(seu) = "celltype"
 
 gex.fib= FoldChange(subset(seu, idents = c("Fibroblasts")),
                     ident.1= "hfpef",
@@ -195,51 +186,74 @@ get_sankey= function(links){
 }
 
 links= liana_res$mac.fibs %>%
-  filter(ligand %in% cand$MF$l & receptor %in% cand$MF$r)%>%
+  dplyr::filter(ligand %in% candidates$MF$l & receptor %in% candidates$MF$r)%>%
   left_join(gex.fib%>%
               rownames_to_column("receptor")%>%
-              rename(fc.fib= avg_log2FC), by= "receptor")%>%
+              dplyr::rename(fc.fib= avg_log2FC), by= "receptor")%>%
   left_join(gex.mac%>%
               rownames_to_column("ligand")%>%
-              rename(fc.mac= avg_log2FC)%>%
-              filter(ligand%in% macs.candidates), by= "ligand")%>%
+              dplyr::rename(fc.mac= avg_log2FC)%>%
+              filter(ligand%in% candidates$MF$l), by= "ligand")%>%
   dplyr::select(ligand, receptor, hf_score, fc.mac, fc.fib)%>%
   mutate(label =  paste0(ligand, "->", receptor))
 
-links= links%>% filter(fc.fib> 0)
-get_sankey(links%>% rename(value= hf_score))
+unique(links$ligand)
+get_sankey(links %>% rename(value= hf_score))
+
+#two macrophage ligands are also fibroblast receptors in our data:
+double= links$ligand[links$ligand %in% links$receptor]
+for (i in 1:length(double)){
+  print(i)
+  links$ligand=str_replace_all(links$ligand, double[i],  paste0(double[i], "_lig"))
+  links$receptor= str_replace_all(links$receptor, double[i],  paste0(double[i], "_rec"))
+
+}
+links= links%>%
+  mutate(label =  paste0(ligand, "->", receptor))
 
 library(igraph)
 
 ## get Node
-vertex= links%>% pivot_longer(c(ligand, receptor),  names_to = "type", values_to="node")%>%
-  distinct(type, node)%>% column_to_rownames("node")
+vertex= links %>% pivot_longer(c(ligand, receptor),  names_to = "type", values_to="node")%>%
+  distinct(type, node)# %>% column_to_rownames("node")
 
-vertex.df= rownames_to_column(vertex, "name")  %>%
+vertex.df= vertex %>%#ownames_to_column(vertex, "name")  %>%
   left_join(links %>%
               distinct(ligand, fc.mac)%>%
-              rename(name= ligand,
-                     size= fc.mac),
-            by= "name") %>%
+              dplyr::rename(node= ligand, size= fc.mac), by= "node") %>%
   left_join(links %>%
-              distinct(receptor, fc.fib)%>%
-                  rename(name= receptor,
-                         size2= fc.fib)
-                , by= "name") #%>%
-vertex.df= vertex.df  %>%mutate(size= ifelse(is.na(size), size2, size))%>% select(-size2)
+              dplyr::distinct(receptor, fc.fib)%>%
+                  dplyr::rename(node= receptor,
+                         size2= fc.fib),
+            by= "node") #%>%
 
+vertex.df= vertex.df  %>%dplyr::mutate(size= ifelse(is.na(size), size2, size))%>%  dplyr::select(-size2)%>%
+  dplyr::rename(name= node)
+
+
+# save for plotting in cytoscape:
+write.csv(vertex.df[,c(2,1,3)], "output/cytoscape_vertexdf.csv", row.names = F)
+write.csv(links, "output/cytoscape_links.csv", row.names = F)
+
+write_delim(vertex.df[,c(2,1,3)], "output/cytoscape_vertexdf.tsv")
+write_delim(links, "output/cytoscape_links.tsv")
+
+
+#plot with igrap
+vertex.df
 # create graph
-g= graph_from_data_frame(d = links, vertices = vertex.df)
+#links= links%>%  filter(receptor!= "Adam15")
+g= graph_from_data_frame(d = links, vertices = vertex.df[,c(2,3,1)])
 V(g)$type= vertex[V(g)$name,1]
 V(g)$type <- bipartite_mapping(g)$type
-V(g)$size= V(g)$size * 10
+V(g)$size= V(g)$size * 20
 V(g)$color <- ifelse(V(g)$type, "lightblue", "salmon")
 E(g)$label = NA
 V(g)$label = V(g)$name
-plot(g, vertex.label.cex = 0.5, vertex.label.color = "black")
+plot(g, vertex.label.cex = 1, vertex.label.color = "black")
 plot(g, layout=layout.fruchterman.reingold,
-     vertex.size=30,
-     vertex.label.cex=1)
+     vertex.size=22,
+     vertex.label.cex=0.8)
 ?plot()
 png("output/figures/funcomics/liana_res.net.png", 2000,2000)
 plot(g,
@@ -292,7 +306,7 @@ conserved.sankey= comb.df2 %>%
 #   links$IDtarget <- match(links$target, nodes$name)-1
 
 # Make the Network
-?sankeyNetwork
+
 my_color <- 'd3.scaleOrdinal() .domain(["a", "b"]) .range(["#69b3a2", "steelblue"])'
 p <- sankeyNetwork(Links = links, Nodes = nodes,
                    Source = "IDsource", Target = "IDtarget",
@@ -319,11 +333,27 @@ p= map(p, function(x){
 })
 cowplot::plot_grid(plotlist = p, ncol = 2)
 
-FeaturePlot(macs,
-            cols= c("darkgrey","blue"),ncol = 2,
-            features=c("Spp1", "Vegfa", "Gas6", "Pdgfa", "Tnf","Vegfb", "Gdf15",  "Plau"),
-              )
-Idents(macs) = "cellstate"
+pls= FeaturePlot(macs,  cols= c("darkgrey","blue"),ncol = 2,
+            features=c("Spp1", "Vegfa", "Tnf", "Gas6", "Pdgfa","Itga9", "Vegfb", "Gdf15",  "Plau"),combine = F, keep.scale = "all"  )
+
+
+pls= map(pls, function(x){
+ x+theme(axis.title = element_blank(),
+         axis.text = element_blank())
+})
+
+plot_grid(plotlist = pls)
+
+pdf("output/figures/main/Fig5/features.pdf",
+    height= 6,
+    width= 11)
+plot_grid(plotlist = pls, ncol = 4)
+
+dev.off()
+
+
+
+Idents(macs) = "group"
 p2= VlnPlot(macs,
 #        idents = "cellstate",
             #cols= c("darkgrey","blue"),

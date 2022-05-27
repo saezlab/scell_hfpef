@@ -54,6 +54,7 @@ cor.sig%>%
 
 ## Test correlation for HF patients
 df_hf= df %>% filter(hfpef ==1)
+
 cor.df_hf= sapply(test.cols, function(x){
   print(x)
   #s= shapiro.test(df_hf[[x]])$p.value
@@ -111,6 +112,10 @@ t.df= sapply(test.cols, function(x){
 
 })%>% t()
 t.df
+
+#save nyha data for plotting.
+
+df %>% select(starts_with("NYHA"), Pat_ID, hfpef ,anptl4 )%>% write.csv(., "output/nyha_patient_data.csv")
 
 ## 4.LR
 library(pROC)

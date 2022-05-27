@@ -156,12 +156,12 @@ p.signatures.hfref = p.%>%
        y= "top n ReHeaT genes")
 
 #2. ora with state marker:
-p.= map(c(100,200, 500), function(x){
+p.2= map(c(100,200, 500), function(x){
   res= ora.int.state= run_ora(re., net2,n_up = x, n_bottom = 0)
   res %>% mutate(n.reheat= x)
 })%>% do.call(rbind, .)
 
-p.states.hfref= p. %>%
+p.states.hfref= p.2 %>%
   mutate(sig= ifelse(p_value<0.05, "*", ""),
          sig= ifelse(p_value<0.01, "**", sig),
          sig= ifelse(p_value<0.001, "***", sig))%>%
@@ -193,7 +193,7 @@ ggplot(., aes(x= source, y= statistic, fill = score))+
 # ora
 # 1. disease signatures
 #map different alpha levels for cut offs.
-p.= map(c(0.05, 0.01, 0.001), function(x){
+p.3= map(c(0.05, 0.01, 0.001), function(x){
   n.genes= length(dea%>% filter(adj.P.Val<x, t>0)%>% pull(MGI.symbol)%>% unique())
   print(n.genes)
   res= run_ora(mat, net,n_up = n.genes, n_bottom = 0)
@@ -201,7 +201,7 @@ p.= map(c(0.05, 0.01, 0.001), function(x){
   res %>% mutate(alpha= x)
 })%>% do.call(rbind, .)
 
-p.signatures.hfpef= p. %>%
+p.signatures.hfpef= p.3 %>%
   mutate(sig= ifelse(p_value<0.05, "*", ""),
          sig= ifelse(p_value<0.01, "**", sig),
          sig= ifelse(p_value<0.001, "***", sig))%>%
@@ -216,7 +216,7 @@ p.signatures.hfpef= p. %>%
 
 # 2. cell state marker
 #map different alpha levels for cut offs.
-p.= map(c(0.05, 0.01, 0.001), function(x){
+p.4= map(c(0.05, 0.01, 0.001), function(x){
   n.genes= length(dea%>% filter(adj.P.Val<x, t>0)%>% pull(MGI.symbol) %>% unique())
   print(n.genes)
   res= run_ora(mat, net2,n_up = n.genes, n_bottom = 0)
@@ -224,7 +224,7 @@ p.= map(c(0.05, 0.01, 0.001), function(x){
   res %>% mutate(alpha= x)
 })%>% do.call(rbind, .)
 
-p.marker.hfpef= p. %>%
+p.marker.hfpef= p.4 %>%
   mutate(sig= ifelse(p_value<0.05, "*", ""),
          sig= ifelse(p_value<0.01, "**", sig),
          sig= ifelse(p_value<0.001, "***", sig))%>%
@@ -238,6 +238,65 @@ p.marker.hfpef= p. %>%
   coord_equal()
 
 
+
+# plot together -------------------------------------------------------------------------------
+plot.df= rbind(p.%>% filter(n.reheat==500)%>% select(-n.reheat)%>% mutate(Human.ref= "HFrEF"),
+      p.2%>% filter(n.reheat==500)%>% select(-n.reheat)%>% mutate(Human.ref= "HFrEF"),
+      p.3 %>% filter(alpha== 0.05)%>% select(-alpha)%>% mutate(Human.ref= "HFpEF"),
+      p.4 %>% filter(alpha== 0.05)%>% select(-alpha)%>% mutate(Human.ref= "HFpEF")
+      )%>% mutate(q_value= p.adjust(p_value),
+                  sig= ifelse(p_value<0.05, "*", ""),
+                         sig= ifelse(p_value<0.01, "**", sig),
+                         sig= ifelse(p_value<0.001, "***", sig))
+
+max.p= max(-log10(plot.df$q_value))
+p_d= plot.df %>% filter(source %in% c("MI", "HFpEF", "AngII"))%>%
+  ggplot(., aes(x= source, y= Human.ref, fill= score))+
+  geom_tile()+
+  scale_fill_gradientn(colors= c("white", "red"),
+                       breaks=c(0,2,4,6,8),#labels=c("Minimum",0.5,"Maximum"),
+                       limits=c(0,10))+
+  geom_text(aes(label=sig))+
+  theme_minimal()+
+  theme(axis.text= element_text(color= "black"),
+        panel.border = element_rect(colour = "black",fill=NA, size=1),
+        axis.text.x=element_text(angle= 40, hjust= 1))+
+  labs(x= "murine disease signature", y= "Human bulk transcriptome", fill = "-log10(q-value)")
+p_d
+
+p_s= plot.df %>% filter(!source %in% c("MI", "HFpEF", "AngII"))%>%
+  ggplot(., aes(x= source, y= Human.ref, fill= score))+
+  geom_tile()+
+  scale_fill_gradientn(colors= c("white", "red"),
+                                              breaks=c(0,2,4,6,8,10),#labels=c("Minimum",0.5,"Maximum"),
+                                        limits=c(0,10))+
+  #scale_fill_gradient(low= "white", high = "darkred")+
+  geom_text(aes(label=sig))+
+  theme_minimal()+
+  theme(axis.text= element_text(color= "black"),
+        panel.border = element_rect(colour = "black",fill=NA, size=1),
+        axis.text.x=element_text(angle= 40, hjust= 1))+
+  labs(x= "murine IFS marker", y= "", fill = "-log10(q-value)")
+p_s
+p.comb= cowplot::plot_grid(p_d+
+                     theme( legend.position = "none",
+                           plot.margin = unit(c(1, 0, 0, 0), "cm"),
+                           axis.title.y = element_text(size= 9)),
+                   p_s+theme( plot.margin = unit(c(1, 0, 0, 0), "cm"),
+                              axis.text.y = element_blank(),
+                              axis.title.x= element_text(margin = margin(t = 17))
+                              ),
+                   ncol =2,
+                   align= "hv",
+                   axis= "tb",
+                   rel_widths   = c(1,1.8))
+p.comb
+
+pdf("output/figures/main/Fig4/bulk_heat.pdf",
+        width= 6,
+        height= 2.)
+p.comb
+dev.off()
 # plot ORA results ----------------------------------------------------------------------------
 
 p.complete= cowplot::plot_grid(p.signatures.hfref+
@@ -358,8 +417,7 @@ p1= p.fc.r %>%
   labs(x= "ReHeaT consensus statistic (directed)")
 p1
 
-
-
+intersect(de_genes,marker$`0`)
 # plot volcanos -------------------------------------------------------------------------------
 
 dea%>%

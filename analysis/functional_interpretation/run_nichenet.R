@@ -21,8 +21,9 @@ library(cowplot)
 library(SingleCellExperiment)
 library(biomaRt)
 
-source("analysis/utils_nichenet.R")
-source("analysis/utils.R")
+source("code/utils_nichenet.R")
+
+source("code/utils.R")
 
 source('~/R-projects/sc-exploration/R-scripts/utils.R')
 # set up prior K ------------------------------------------------------------------------------
@@ -31,6 +32,11 @@ source('~/R-projects/sc-exploration/R-scripts/utils.R')
 ligand_target_matrix = readRDS(url("https://zenodo.org/record/3260758/files/ligand_target_matrix.rds"))
 lr_network = readRDS(url("https://zenodo.org/record/3260758/files/lr_network.rds"))
 weighted_networks = readRDS(url("https://zenodo.org/record/3260758/files/weighted_networks.rds"))
+
+#if downloaded:
+ligand_target_matrix = readRDS("data/prior_knowledge/nichenet/ligand_target_matrix.rds")
+lr_network = readRDS("data/prior_knowledge/nichenet/lr_network.rds")
+weighted_networks = readRDS("data/prior_knowledge/nichenet/weighted_networks.rds")
 
 ## 2. convert to mouse symobls
 
@@ -55,54 +61,19 @@ weighted_networks_lr = weighted_networks_lr %>% mutate(from = convert_human_to_m
 seu= readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
 
 Idents(seu)= "celltype"
-
 unique(Idents(seu))
+#fib_sigs= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
+# get the fibroblast signature( up and dn)
+hfpef_f= readRDS( "output/fib_integration/marker_list/DEG_hfpef.rds")
 
-state_marker= readRDS("output/cell_state_marker.rds")
-fib_sigs= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
-fib_sigs= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs.rds")
 #get the candidates from LIANA
-candidates = readRDS("output/funcomics_res/liana_candidates_MF.rds")
+candidates = readRDS("output/liana_candidates_MF.rds")
 
-#get macrophage HF marker
-
-seu@meta.data= seu@meta.data %>% mutate(group.celltype = paste0(group, ".", celltype))
-Idents(seu)= "group.celltype"
-DefaultAssay(seu) = "RNA"
-dea=FindMarkers(seu, ident.1 ="hfpef.macrophages",
-                ident.2 ="ct.macrophages",logfc.threshold = 0.05, min.pct = 0.01,min.cells.group = 1
-                )
-up_dea= dea  %>% filter(avg_log2FC >0) %>% arrange(p_val_adj)
-
-up_genes= rownames(up_dea %>% filter(p_val_adj <0.2,
-                                     avg_log2FC >0) %>%
-                     arrange(p_val_adj)
-                   )
-
-#run on all :
-x= fib_sigs$hfpef%>% filter(p_val_adj<0.05)
-
-geneset_receiver= rownames(x)
-
-geneset_receiver = c(fib_sigs$unique$hfpef,
-                     unlist(fib_sigs$overlap$all),
-                     fib_sigs$overlap$hfpef_forte,
-                     fib_sigs$overlap$hfpef_circ)
-
-geneset_receiver = c(fib_sigs$total$HFpEF)
-# run on only uniques :
-#geneset_receiver = c(fib_sigs$unique$hfpef)
-
-names(geneset_receiver)= NULL
-
-geneset_sender= candidates$MF$l
-
-Idents(seu)= "celltype"
-
+# prepare nichnet input
 input= prep_nichenet_input(sender = "Macrophages",
                     receiver = "Fibroblasts",
                     geneset_sender = candidates$MF$l,
-                    geneset_receiver= geneset_receiver)
+                    geneset_receiver= hfpef_f$gene)
 # MAIN
 # predict ligand activity
 ligand_activities = predict_ligand_activities(geneset = input$geneset_oi,
@@ -119,10 +90,13 @@ p.ligand.activities= ligand_activities %>%
   geom_tile()+
   scale_fill_gradient(low= "#2596be", high = "darkblue")+
   theme_minimal()+
-  theme(axis.text = element_text(color= "black"),
-        axis.text.x= element_blank())+
-  labs(x= "",y= "ranked ligands by NicheNet")
-pdf("output/figures/funcomics/nichenet_ligand.activities.pdf",
+  theme(axis.text = element_text(color= "black",size= 11),
+        axis.text.x= element_blank(),
+        legend.title = element_text(size= 9),
+        legend.text = element_text(size= 9),
+        legend.position = "left")+
+  labs(x= "",y= "Macrophage ligands")
+pdf("output/figures/main/Fig5/nichenet_ligand.activities.pdf",
     width = 2,
     height= 3)
 p.ligand.activities
@@ -153,7 +127,7 @@ active_ligand_target_links_df = best_upstream_ligands %>%
 
 active_ligand_target_links = prepare_ligand_target_visualization(ligand_target_df = active_ligand_target_links_df,
                                                                  ligand_target_matrix = ligand_target_matrix,
-                                                                 cutoff = 0.01)
+                                                                 cutoff = 0.0001)
 
 order_ligands = intersect(best_upstream_ligands, colnames(active_ligand_target_links)) %>% rev() %>% make.names()
 order_targets = active_ligand_target_links_df$target %>% unique() %>% intersect(rownames(active_ligand_target_links)) %>% make.names()
@@ -165,10 +139,10 @@ vis_ligand_target = active_ligand_target_links[order_targets,order_ligands] %>% 
 #  heatmap plotting
 
 p_ligand_target_network = vis_ligand_target %>%
-  make_heatmap_ggplot("Macrophage ligands","Fibroblast target genes",
+  make_heatmap_ggplot("","Fibroblast target genes",
                       color = "purple",
-                      legend_position = "top",
-                      x_axis_position = "top",
+                      legend_position = "right",
+                      x_axis_position = "bottom",
                                                                     legend_title = "Regulatory potential")  +
   theme(axis.text.x = element_text(face = "italic", color ="black"),
         axis.text= element_text(color= "black"))
@@ -176,14 +150,21 @@ p_ligand_target_network = vis_ligand_target %>%
 print(p_ligand_target_network)
 
 
-pdf("output/figures/funcomics/nichenet_res.pdf",
+pdf("output/figures/main/Fig5//nichenet_res.pdf",
     width= 5.5,
     height= 3.5)
 p_ligand_target_network
 dev.off()
 
+p.comb= cowplot::plot_grid(p.ligand.activities, p_ligand_target_network, align= "h", axis= "tb", rel_widths = c(1,2.5))
 
-# omnipath with nichenet ----------------------------------------------------------------------
+pdf("output/figures/main/Fig5//niche_net_comb.pdf",
+    width= 7.5,
+    height= 3)
+p.comb
+dev.off()
+
+  # omnipath with nichenet ----------------------------------------------------------------------
 
 library(OmnipathR)
 library(mlrMBO)

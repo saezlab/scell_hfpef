@@ -16,7 +16,7 @@ library(tidyverse)
 
 source("code/utils.R")
 source("code/utils_funcomics.R")
-int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
+int.fibs = readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
 
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 state_marker= readRDS("output/fib_integration/marker_list/integrated_marker.rds")
@@ -40,6 +40,8 @@ FeaturePlot(int.fibs, features = c("Acta2", "Postn", "Angptl4", "Thbs4", "Cthrc1
 FeaturePlot(int.fibs, features = c("Igfbp3" , "Cxcl14", "Pi16", "Cilp"))
 
 markx= map(marker , function(x){ x[1:6]})
+
+
 
 p.marker= DotPlot(integrated_data, group.by = "opt_clust_integrated", features = unique(unlist(markx)), cols= up_dn_cols,
                   cluster.idents = F)+

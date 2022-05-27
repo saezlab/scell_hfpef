@@ -12,14 +12,80 @@
 library(tidyverse)
 library(Seurat)
 library(lsr)
+library(ComplexHeatmap)
 
 fib= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled2.rds")
 seu= readRDS("output/seu.objs/cell.state.obj.list.rds")
 seu= seu$fibroblasts
 degs= fib$total$hfpef
 
+circ= readRDS( file = "../sc-exploration/output/circ_obj/fibroblasts_seu.rds")
+
+DefaultAssay(circ)= "RNA"
+circ@meta.data= circ@meta.data %>% mutate(group = ifelse(group == "angII", "hf", "ct" ))
+circ@meta.data%>% select(treatment, group) %>% table()
+seu= circ
 
 
+# funcs ---------------------------------------------------------------------------------------
+
+prep_input= function(seu, group, clust, degs){
+
+  #get normalized expr data
+  log.data= GetAssayData(seu, slot = "data", assay = "RNA")
+  # get cell state labels:
+  Idents(seu)= clust
+  labels.state= CellsByIdentities(seu, )
+  labels.state= enframe(labels.state, name="state", value= "cellid") %>% unnest(cellid)
+
+  Idents(seu) = group
+  labels.group= CellsByIdentities(seu)
+  labels.group= enframe(labels.group, name="group", value= "cellid" )%>% unnest(cellid)
+
+  dim(as.matrix(log.data[,]))
+  degs[!degs %in% rownames(log.data)]
+
+  #prepare dataframe to run anovas on
+  model.df= (log.data[degs,])%>%as.data.frame()%>%
+    t() %>%
+    as.data.frame()%>%
+    rownames_to_column("cellid")%>%
+    as_tibble()%>%
+    left_join(labels.state, by= "cellid")%>%
+    left_join(labels.group, by= "cellid")
+}
+do.aov = function(model.df, degs){
+  df.aov= sapply(degs, function(x){
+    print(x)
+
+    aov.1=aov(as.formula(paste0(x ,"~ state")), data = model.df)
+    aov.2=aov(as.formula(paste0(x ,"~ group")), data = model.df)
+    eta1= etaSquared(aov.1)[1,1]
+    eta2= etaSquared(aov.2)[1,1]
+
+    c(eta1, eta2, eta1*eta2)
+
+
+  })
+  rownames(df.aov)= c("eta.state", "eta.group", "sg.ratio")
+  df.aov= t(df.aov)
+}
+
+
+# angII ---------------------------------------------------------------------------------------
+cl= fib$total$circ[fib$total$circ != "Hbb-bs"]
+
+df.circ= prep_input(circ,group =  "group", clust = "RNA_snn_res.0.3", degs = fib$total$circ)
+aov.circ= do.aov(df.circ, cl)
+aov.circ
+Heatmap(aov.circ[,1])
+p1= fgsea::plotEnrichment(pathway= fib$overlap$all, stats= aov.circ[,1])
+top_exp = sort(aov.circ[,1])
+top_comp = rev(sort(aov.circ[,1]))
+Assays(circ)
+DimPlot(circ)
+VlnPlot(circ, features= names(top_comp[1:6]), assay= "RNA")
+VlnPlot(circ, features= names(top_exp[1:6]), assay= "RNA")
 # Anovas for cell state label ------------------------------------------------------------
 
 #get normalized expr data
@@ -69,7 +135,7 @@ df.aov= sapply(degs, function(x){
 rownames(df.aov)= c("eta.state", "eta.group", "sg.ratio")
 df.aov= t(df.aov)
 
-library(ComplexHeatmap)
+
 h1= Heatmap(df.aov[,1:2])= Heatmap(df.aov[,3])
 aov.tidy= rownames_to_column(as.data.frame(df.aov), "gene")%>% as_tibble()
 
@@ -126,6 +192,7 @@ metabs$gene <- gsub("Gene.*__","",metabs$gene)
 metabs$metab <- gsub("_[a-z]$","",metabs$metab)
 metabs$metab <- gsub("Metab__","",metabs$metab)
 str_to_title(metabs$gene)
+
 m.genes= gene_translate %>% filter(Gene.name %in% metabs$gene)%>% pull(MGI.symbol)
 
 fgseaSimple(pathways= list("fibrosis_core"= fib$overlap$all,

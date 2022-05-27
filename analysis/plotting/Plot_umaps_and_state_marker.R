@@ -189,8 +189,10 @@ dev.off()
 # UMAP of integrated fibroblasts --------------------------------------------------------------
 
 integrated_data= readRDS( "output/seu.objs/study_integrations/harmony_fib_filt.rds")
-integrated_data@meta.data=  integrated_data@meta.data%>% mutate(study= ifelse(study=="circ", "AngII",
-                                            ifelse(study=="forte", "MI", "HFpEF")))
+integrated_data@meta.data=  integrated_data@meta.data%>%
+  mutate(study= ifelse(study=="circ", "AngII",
+                       ifelse(study=="forte", "MI", "HFpEF")),
+         group = ifelse(group== "ct", "Control", "HFpEF"))
 source("code/utils.R")
 #cols= c( "#7FC97F" ,"#BEAED4", "#FDC086" )
 #cols= c("#EF946C", "#785474", "#AF1B3F","#77B6EA","#66B3BA","#ab87a6", "#66B3BA","#848FA5", "#58B09C", "#AF1B3F")
@@ -269,17 +271,18 @@ umap.study
 p.c= cowplot::plot_grid(
                         umap.disease,#+coord_equal(),
                         umap.study,#+coord_equal(),
-                        NULL,
+
                         umap1,#+coord_equal(),
                         rel_heights = c(1,  1),
-                        ncol = 2,
+                        ncol =3,
                         align="hv",
                         axis= "tplr")
 p.c
 pdf("output/figures/main/Fig3/fib_integrated_umaps.pdf",
-    height= 9, width= 9)
+    height= 3, width= 12)
 p.c
 dev.off()
+
 
 pdf("output/figures/main/fib_integrated_umaps.pdf",
     height= 6, width= 6)

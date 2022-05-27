@@ -96,3 +96,25 @@ dorothea_mm%>% filter(tf== "Ppara") %>% print(n=100)
 
 dorothea_mm%>% filter(tf== "Pparg") %>% print(n=100)
 dorothea_mm%>% filter(target=="Angptl4")
+
+
+# check regen fibs ----------------------------------------------------------------------------
+
+int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
+
+features = c("Col11a1", "Col12a1", "Nppc")
+Idents(int.fibs)= "group"
+int.fibs@meta.data= int.fibs@meta.data %>% mutate(study= ifelse(study== "circ", "AngII",
+                                                                ifelse(study=="forte", "MI", "HFpEF")))%>%
+  mutate(study.group= paste0(study, "_", group))
+VlnPlot(int.fibs, features = c("Col11a1", "Col12a1", "Nppc"), group.by = "study.group")
+
+VlnPlot(subset(int.fibs, study== "hfpef" ), features, group.by = "group")
+p2= VlnPlot(subset(int.fibs, study== "forte" ), features, group.by = "group")
+p3= VlnPlot(subset(int.fibs, study== "circ" ), features, group.by = "group")
+
+df= readRDS("output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
+
+map(names(df), function(x){
+  df[[x]][features,]
+})
