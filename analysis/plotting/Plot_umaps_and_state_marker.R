@@ -192,7 +192,7 @@ integrated_data= readRDS( "output/seu.objs/study_integrations/harmony_fib_filt.r
 integrated_data@meta.data=  integrated_data@meta.data%>%
   mutate(study= ifelse(study=="circ", "AngII",
                        ifelse(study=="forte", "MI", "HFpEF")),
-         group = ifelse(group== "ct", "Control", "HFpEF"))
+         group = ifelse(group== "ct", "Control", "HF"))
 source("code/utils.R")
 #cols= c( "#7FC97F" ,"#BEAED4", "#FDC086" )
 #cols= c("#EF946C", "#785474", "#AF1B3F","#77B6EA","#66B3BA","#ab87a6", "#66B3BA","#848FA5", "#58B09C", "#AF1B3F")
@@ -284,7 +284,7 @@ p.c
 dev.off()
 
 
-pdf("output/figures/main/fib_integrated_umaps.pdf",
+  pdf("output/figures/main/fib_integrated_umaps.pdf",
     height= 6, width= 6)
 umap1+coord_equal()
 umap.disease+coord_equal()

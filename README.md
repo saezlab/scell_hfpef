@@ -32,7 +32,7 @@ Functional analysis
 3) run_dorothea.R [TF activity estimation]
 4) run_liana.R [Ligand Receptor analysis]
 5) run_nichenet.R [Ligand-network analysis]
-
+32  
 Fibroblast Integration Meta 
 1) Process_study_MI.R
 2) Process_study_Ang2.R

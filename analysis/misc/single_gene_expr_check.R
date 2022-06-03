@@ -103,13 +103,21 @@ dorothea_mm%>% filter(target=="Angptl4")
 int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
 
 features = c("Col11a1", "Col12a1", "Nppc")
+toupper(features)
 Idents(int.fibs)= "group"
 int.fibs@meta.data= int.fibs@meta.data %>% mutate(study= ifelse(study== "circ", "AngII",
                                                                 ifelse(study=="forte", "MI", "HFpEF")))%>%
   mutate(study.group= paste0(study, "_", group))
-VlnPlot(int.fibs, features = c("Col11a1", "Col12a1", "Nppc"), group.by = "study.group")
+p1= VlnPlot(int.fibs, features = c("Col11a1", "Col12a1", "Nppc", "Fn1"), group.by = "study.group", ncol = 4)
+p2= FeaturePlot(int.fibs, features = c("Col11a1", "Col12a1", "Nppc", "Fn1"))
+int.fibs$opt_clust_integrated
+DimPlot(int.fibs, group.by = "opt_clust_integrated")
+pdf("output/figures/regenerative_markrer.pdf",
+    width = 9, height= 9)
+cowplot::plot_grid(p1, p2, ncol = 1, rel_heights = c(1, 1.5))
+dev.off()
 
-VlnPlot(subset(int.fibs, study== "hfpef" ), features, group.by = "group")
+p1= VlnPlot(subset(int.fibs, study== "hfpef" ), features, group.by = "group")
 p2= VlnPlot(subset(int.fibs, study== "forte" ), features, group.by = "group")
 p3= VlnPlot(subset(int.fibs, study== "circ" ), features, group.by = "group")
 

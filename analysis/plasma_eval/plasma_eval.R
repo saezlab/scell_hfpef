@@ -18,6 +18,8 @@ library(tidyverse)
 
 meta = read_sav(file = "data/plasma/2200301_Data_AFFECT.sav")
 anp= read.csv("data/plasma/ANGPTL4_20220316.csv")
+meta%>%select(starts_with("NYHA"))
+hist(meta$NYHA_change)
 
 #map= read.csv("data/plasma/pair_matching.csv")
 
@@ -113,10 +115,12 @@ t.df= sapply(test.cols, function(x){
 })%>% t()
 t.df
 
+
 #save nyha data for plotting.
 
-df %>% select(starts_with("NYHA"), Pat_ID, hfpef ,anptl4 )%>% write.csv(., "output/nyha_patient_data.csv")
 
+df %>% select(starts_with("NYHA"), Pat_ID, hfpef ,anptl4,logntprobnp )%>% write.csv(., "output/nyha_patient_data.csv")
+plot(df$NYHA_stage_base, df$NYHA_change)
 ## 4.LR
 library(pROC)
 
@@ -140,6 +144,7 @@ df2 = df2 %>% mutate(anptl4 = scale(anptl4),
                      logntprobnp = scale(logntprobnp))
 
 df2= df2 %>% mutate(nyha.m= factor(ifelse(NYHA_stage_base>1, 1, 0)))
+
 lr.bnp.ang= glm(nyha.m~logntprobnp+ anptl4, data = df2, family= "binomial")
 auc(df2$nyha.m, lr.bnp.ang$fitted.values)
 coef(summary(lr.bnp.ang))
@@ -327,7 +332,7 @@ ggplot(df, aes(x= factor(NYHA_stage_12MFU), y= anptl4))+
   theme_bw()
 )
 p_NYHA_anptl4_HF= cowplot::plot_grid(
-  ggplot(df_hf, aes(x= factor(NYHA_stage_base), y= anptl4))+
+  ggplot(df_hf, aes(x= factor(NYHA_stage_base), y= anptl4 ))+
     geom_boxplot()+
     geom_jitter()+
     labs(x= "NYHA baseline",
@@ -344,16 +349,29 @@ p_NYHA_anptl4_HF= cowplot::plot_grid(
 p_NYHA_anptl4
 
 cowplot::plot_grid(
-  ggplot(df, aes(x= factor(NYHA_stage_base), y= logntprobnp))+
+  ggplot(df_hf, aes(x= factor(NYHA_stage_base), y= logntprobnp))+
     geom_boxplot()+
     geom_jitter(),
-  ggplot(df, aes(x= factor(NYHA_change), y= logntprobnp))+
+  ggplot(df_hf, aes(x= factor(NYHA_change), y= logntprobnp))+
     geom_boxplot()+
     geom_jitter(),
-  ggplot(df, aes(x= factor(NYHA_stage_12MFU), y= logntprobnp))+
+  ggplot(df_hf, aes(x= factor(NYHA_stage_12MFU), y= logntprobnp))+
     geom_boxplot()+
     geom_jitter()
 )
+
+cowplot::plot_grid(
+  ggplot(df_hf, aes(x= factor(NYHA_stage_base), y= anptl4))+
+    geom_boxplot()+
+    geom_jitter(),
+  ggplot(df_hf, aes(x= factor(NYHA_change), y= anptl4))+
+    geom_boxplot()+
+    geom_jitter(),
+  ggplot(df_hf, aes(x= factor(NYHA_stage_12MFU), y= anptl4))+
+    geom_boxplot()+
+    geom_jitter()
+)
+
 ggplot(df%>%filter(hfpef== 1), aes(x= anptl4, y= Strain_Baseline))+
   geom_point()
 df$E_e_ratio_peak_baseline
