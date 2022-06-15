@@ -3,8 +3,8 @@
 **Collaborators**:
 Laura Wienecke and Florian Leuschner. 
 
-**Background**: Heart Failure with preserved ejection fraction (HFpEF) makes up about 50 % of the HF population and is a systemic syndrome characterized by accumulated risk factors and comorbidities and a noncompliant and stiff heart that is exposed to lower wall stress. HFpEF often is described as disease that is not "heart centric", i.e. the heart  falls victim to a pro inflammatory and/or dysbalanced metabolic state that arises from co-morbidities like diabetes or chronic kidney disease.
-We used a [two hit hfpef mouse model](https://www.nature.com/articles/s41586-019-1100-z) to connect disease phenotypic changes to cellular changes on the single cell level. 
+**Background**:
+Inflammation, fibrosis and metabolic stress critically promote heart failure with preserved ejection fraction (HFpEF). Exposure to high-fat diet and nitric oxide synthase inhibitor N[w]-nitro-l-arginine methyl ester (L-NAME) recapitulate features of HFpEF in mice. To identify disease specific traits during adverse remodeling, we performed single-cell RNAseq (scRNAseq) of interstitial cells in murine HFpEF. Diastolic dysfunction and fibrosis were accompanied by an activation of cardiac fibroblast and macrophage subsets. Comparison with scRNAseq datasets of murine heart failure with reduced ejection fraction (HFrEF) identified a specific HFpEF fibroblast disease signature, characterized by e.g. overexpression of basement membrane genes. While myo- and matrifibroblast activation is known to be crucial for cardiac fibrosis in HFrEF, we found this cell-state switch to be less important in HFpEF. Disease specific fibroblast signatures were corroborated in human myocardial bulk transcriptomes and main markers confirmed at protein level in murine samples. Lipoproteinlipase Angiopoietin-like 4 was identified to indicate HFpEF mediated fibroblast activation and may serve as a potential biomarker for disease progression. Taken together, our results provide a characterization of the interstitial cellular landscape of murine HFpEF, including specific characteristics of fibroblast activation.
 
 **Methods**: Whole single cell RNA sequencing with 10x genomics and Illumina 
 
@@ -13,41 +13,43 @@ We used a [two hit hfpef mouse model](https://www.nature.com/articles/s41586-019
 **Analysis Workflow**
 
 Processing, QC and integration
-1) [run_samplewise_processing.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/run_sample_wise_preprocessing.R) [sample wise QC]
-2) harmony_integration_across_sample.R [first sample integration]
-3) annotate_celltypes.R [Cluster marker identification and manual labeling]
-4) reintegrate_after_filter.R [based on marker genes, some clusters are removed and samples are reintegrated]
-5) sample_distance.R [calculate distance between pseudobulk profiles]
-6) differntial_cell_proportions.R [calculate cell proportion changes with label permutation]
+1) sample wise QC [run_samplewise_processing.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/run_sample_wise_preprocessing.R) 
+2) first sample integration [harmony_integration_across_sample.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/harmony_integration_across_sample.R)
+3) Cluster marker identification and manual labeling [annotate_celltypes.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/annotate_celltypes.R) 
+4) filtering of clusters and reintegration [round1](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/filter_clusters_round1.R) [round2](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/filter_clusters_round2.R)
+5) calculate distance between pseudobulk profiles [sample_distance.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/sample_distance.R)
+6) calculate cell proportion changes with label permutation [differntial_cell_proportions.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/differntial_cell_proportions.R)
 
 Cellstate definitions and Differntial gene expression
-1) harmony_integration_per_celltype.R 
-2) annotate_cellstates.R [cell states are defined ]
-3) fibroblast_state_interpretation.R
-4) DEA_per_celltype.R [HfpEF DEA per celltype with downsampling]
+1) [harmony_integration_per_celltype.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/harmony_integration_per_celltype.R)
+2) [annotate_cellstates.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/annotate_cellstates.R)
+3) [fibroblast_state_interpretation.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/fibroblast_state_interpretation.R)
+4) HfpEF DEA per celltype with downsampling [DEA_per_celltype.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/differential_expression_analysis/DEA_per_celltype.R)
 
 Functional analysis
-1) GO_enrich [Enrichment of Gene Ontology terms]
-2) run_cytosig_progeny.R [pathway analysis and cytokine footprinting]
-3) run_dorothea.R [TF activity estimation]
-4) run_liana.R [Ligand Receptor analysis]
-5) run_nichenet.R [Ligand-network analysis]
-32  
-Fibroblast Integration Meta 
-1) Process_study_MI.R
-2) Process_study_Ang2.R
-3) integration_fibroblasts.R + integration_fibroblasts_filtered.R [Harmony based integration of three studies with cells filtered]
-3) fibroblast_state_interpretation_integrated.R
-4) composition_comparison.R [Compare cell HFpEF cell states mapping]
+1)Enrichment of Gene Ontology terms  [GO_enrich.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/GO_enrich.R)
+2) pathway analysis and cytokine footprinting [run_cytosig_progeny.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_cytosig_progeny.R)
+3) TF activity estimation [run_dorothea.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_dorothea.R)
+4) Ligand Receptor analysis [run_liana.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_liana.R) 
+5) Ligand-network analysis [run_nichenet.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_nichenet.R)
+
+Fibroblast Integration with different studies
+1) [Process_study_MI.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/process_MI.R)
+2) [Process_study_AngII.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/process_AngII.R)
+3)  Harmony based integration of three studies with cells filtered [integration_fibroblasts.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/integration_fibroblasts.R) + [integration_fibroblasts_filtered.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/integration_fibroblasts_filtered.R)
+4) [fibroblast_state_interpretation_integrated.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/fibroblast_state_interpretation_integrated.R)
+5) [composition_comparison.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/differntial_cell_proportions.R) 
 
 Fibroblast disease model signatures
-1) DEA_fibs_all_studies.R [Fibroblas Marker gene detection in each study]
-2) fib_signature_interpretation.R [GSEA, progeny, dorothea on signatures]
-3) compare_study_degs.R [compare overlap and correlation between signatures]
-4) map_study_DEG_to_integrated_cluster.R [fibroblast marker are mapped back to each study]
-5) compare_statemarker_and_deg.R [relate statemarker and signatures]
+1) Fibroblas Marker gene detection in each study [DEA_fibs_all_studies.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/differential_expression_analysis/DEA_fibs_all_studies.R)
+2 GSEA, progeny, dorothea on signatures [fib_signature_interpretation.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/fib_signature_interpretation.R) 
+3) compare overlap and correlation between signatures [compare_study_degs.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/compare_stuy_degs.R)
+4) Fibroblast marker are mapped back to each study [map_study_DEG_to_integrated_cluster.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/map_study_DEG_to_integrated_cellstates.R)
+5) relate statemarker and signatures [compare_statemarker_and_deg.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/compare_statemarker_and_deg.R)
 
-
+Human bulk comparison
+1) Process Human HFpEF [bulk_human_process.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/bulk/bulk_human_process.R)
+2) [compare bulk signatures](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/bulk_validation_external.R)
 
 
 
