@@ -30,6 +30,7 @@ names(seu.objs) = cell.types
 seu_int = readRDS( file = "output/seu.objs/integrated_cellstate_nameupdated.rds")
 
 seu.objs= readRDS(file ="output/seu.objs/cell.state.obj.list.rds")
+
 # marker ident --------------------------------------------------------------------------------
 
 fibs = seu.objs$fibroblasts
@@ -126,3 +127,25 @@ df= readRDS("output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
 map(names(df), function(x){
   df[[x]][features,]
 })
+
+
+
+# get cellstate raw numbers -------------------------------------------------------------------
+
+dF= map(unique(meta$study), function(x){
+  meta %>% filter(study == x)%>% group_by(group, opt_clust_integrated)%>% count%>%
+    mutate(study= x)
+}) %>% do.call(rbind, .)
+
+pls= map(c("ct", "hf"), function(x){
+
+    dF %>% filter(group ==x) %>%
+    ggplot(., aes(x= study, y= opt_clust_integrated, fill = n))+
+    geom_tile()+
+    scale_fill_gradient(low= "grey", high = "white")+
+    geom_text(aes(label =n))+
+    labs(y= "IFS")
+
+})
+
+cowplot::plot_grid(pls, ncol = 2)

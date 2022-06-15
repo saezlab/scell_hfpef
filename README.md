@@ -4,16 +4,16 @@
 Laura Wienecke and Florian Leuschner. 
 
 **Background**: Heart Failure with preserved ejection fraction (HFpEF) makes up about 50 % of the HF population and is a systemic syndrome characterized by accumulated risk factors and comorbidities and a noncompliant and stiff heart that is exposed to lower wall stress. HFpEF often is described as disease that is not "heart centric", i.e. the heart  falls victim to a pro inflammatory and/or dysbalanced metabolic state that arises from co-morbidities like diabetes or chronic kidney disease.
-We used a two hit hfpef mouse model (https://www.nature.com/articles/s41586-019-1100-z) to connect phenotypic changes to cellular changes on the single cell level. 
+We used a [two hit hfpef mouse model](https://www.nature.com/articles/s41586-019-1100-z) to connect disease phenotypic changes to cellular changes on the single cell level. 
 
-**Methods**: whole single cell RNA sequencing, 10x genomics, done in sc facility Mannheim. 
+**Methods**: Whole single cell RNA sequencing with 10x genomics and Illumina 
 
-**Design:** Overall: 2x Control mice vs 2x hfpef mice, time points 5-6 weeks after treatment start.
+**Design:** Overall: 2x Control mice vs 2x HfpEF mice, time points 7 weeks after treatment start.
 
 **Analysis Workflow**
 
 Processing, QC and integration
-1) run_samplewise_processing.R [sample wise QC]
+1) [run_samplewise_processing.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/sample_integration/run_sample_wise_preprocessing.R) [sample wise QC]
 2) harmony_integration_across_sample.R [first sample integration]
 3) annotate_celltypes.R [Cluster marker identification and manual labeling]
 4) reintegrate_after_filter.R [based on marker genes, some clusters are removed and samples are reintegrated]

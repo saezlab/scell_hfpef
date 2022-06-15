@@ -30,7 +30,11 @@ df= meta %>%
   rename(anptl4= unverd..Probe)
 
 
-
+table(df$sex, df$hfpef)
+df %>% group_by(hfpef)%>% summarise(md= median(age),
+                                    iqr= IQR(age))
+df %>% ggplot(., aes(x= hfpef, y= age))+
+  geom_boxplot()
 # ## 1. use numerical values for correlation testing ------------------------------------------
 
 ## Test correlation for all patients

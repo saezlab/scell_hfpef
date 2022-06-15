@@ -10,3 +10,6 @@ analysis/*html
 analysis/*_cache
 analysis/site_libs
 omnipathr-log/
+data/*
+output/*
+
