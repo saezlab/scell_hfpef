@@ -27,20 +27,20 @@ Cellstate definitions and Differntial gene expression
 4) HfpEF DEA per celltype with downsampling [DEA_per_celltype.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/differential_expression_analysis/DEA_per_celltype.R)
 
 Functional analysis
-1)Enrichment of Gene Ontology terms  [GO_enrich.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/GO_enrich.R)
+1) Enrichment of Gene Ontology terms  [GO_enrich.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/GO_enrich.R)
 2) pathway analysis and cytokine footprinting [run_cytosig_progeny.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_cytosig_progeny.R)
 3) TF activity estimation [run_dorothea.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_dorothea.R)
 4) Ligand Receptor analysis [run_liana.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_liana.R) 
 5) Ligand-network analysis [run_nichenet.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/run_nichenet.R)
 
-Fibroblast Integration with different studies
+Fibroblast integration with different studies
 1) [Process_study_MI.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/process_MI.R)
 2) [Process_study_AngII.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/process_AngII.R)
 3)  Harmony based integration of three studies with cells filtered [integration_fibroblasts.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/integration_fibroblasts.R) + [integration_fibroblasts_filtered.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_integration/integration_fibroblasts_filtered.R)
 4) [fibroblast_state_interpretation_integrated.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/fibroblast_state_interpretation_integrated.R)
 5) [composition_comparison.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/functional_interpretation/differntial_cell_proportions.R) 
 
-Fibroblast disease model signatures
+Fibroblast signature comparisons
 1) Fibroblas Marker gene detection in each study [DEA_fibs_all_studies.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/differential_expression_analysis/DEA_fibs_all_studies.R)
 2 GSEA, progeny, dorothea on signatures [fib_signature_interpretation.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/fib_signature_interpretation.R) 
 3) compare overlap and correlation between signatures [compare_study_degs.R](https://github.com/saezlab/scell_hfpef/blob/main/analysis/study_comparison/compare_stuy_degs.R)
