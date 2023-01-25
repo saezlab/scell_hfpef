@@ -12,4 +12,5 @@ analysis/site_libs
 omnipathr-log/
 data/*
 output/*
+*.json
 
