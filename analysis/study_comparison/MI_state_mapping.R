@@ -9,11 +9,16 @@
 ## Purpose of script:
 ## use forte et al MI study to see at which time point the integrated cluster pop up.
 ##
-rm(integrated_data)
-meta
+
+library(tidyverse)
 
 source("code/utils.R")
 source("code/utils_celltype_atlas.R")
+
+integrated_data= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
+meta= integrated_data[[]]
+rm(integrated_data)
+meta
 forte= readRDS( file = "../sc-exploration/output/cell_mi_files/fibro_subset_integrated.rds")
 forte@meta.data= forte@meta.data %>%
   mutate(group = ifelse(OP== "myocardial infarction", "hf", "ct"),
@@ -40,12 +45,36 @@ prop.= calc_mean_proportions_per_group(df %>% filter(OP == "myocardial infarctio
                                 cluster.col = "opt_clust_integrated",
                                 sample.col = "orig.ident.x",
                                 group.col = "time")
+
 prop.$groupwise%>%
   ggplot(., aes(factor(time), opt_clust_integrated, fill = mean.percent))+
   geom_tile()+
   scale_fill_gradient(low= "white", high = "darkred")+
-  labs(fill= "mean proportion", y= "integrated cell states")
+  labs(fill= "mean proportion", y= "integrated cell states")+
+  theme_minimal()
 
 prop.$samplewise%>%
   ggplot(.,aes( color = factor(time), x= opt_clust_integrated, y = props))+
   geom_boxplot()
+
+
+
+
+# add timepoint data to integrated object -----------------------------------------------------
+
+df= df1 %>%
+  select(cellid, time)%>%
+  right_join(df2, by= "cellid")
+
+table(df$time, df$group)
+
+table(colnames(integrated_data) == df_sort$cellid)
+table(colnames(integrated_data) %in% df$cellid)
+
+df_sort = df[match( colnames(integrated_data), df$cellid),]
+
+saveRDS(df_sort, "output/seu.objs/study_integrations/meta_with_time.rds")
+
+integrated_data= AddMetaData(integrated_data, df_sort$time, col.name= "time")
+
+saveRDS(integrated_data, "output/seu.objs/study_integrations/harmony_fib_filt_2.rds")

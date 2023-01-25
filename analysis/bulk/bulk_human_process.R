@@ -23,6 +23,7 @@ if(!exists("genemap")){
 
 x= read_tsv("data/_Hfpef_bulk_study/HF_pEF_Normal_normalized_EBI_submission_091118.txt")
 
+boxplot(x[,-1])
 boxplot(log10(x[,-1]))
 ## some genes are pseudogenes and will be exclueded
 
@@ -37,11 +38,13 @@ df= x %>% left_join(genemap %>% rename(GeneID= ensembl_gene_id), by= "GeneID") %
   filter(hgnc_symbol!= "")
 
 target= data.frame("sample"= colnames(df), "group"= grepl(x = colnames(df), "Normal"))
-target=target %>% mutate(group = ifelse(group, "HFpEF", "Ct"))
+target=target %>% mutate(group = ifelse(group, "HFpEF", "Ct"))%>%
+  filter(sample!= "hgnc_symbol")
 
 df= column_to_rownames(df, "hgnc_symbol")
 
 colnames(df)== target$sample
+#df[,colnames(df)[match( target$sample, colnames(df))]]
 group= target$group
 dge <- DGEList(counts=df, group=group)
 

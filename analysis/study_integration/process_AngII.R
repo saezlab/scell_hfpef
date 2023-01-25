@@ -91,10 +91,10 @@ int_seu <- FindClusters(int_seu, resolution = 0.5)
 saveRDS(inte_seu, paste0(directory, "data/circ_MI/integrated_seurat_circMI.rds"))
 
 
-# identify fibro ---------------------------------------------------------------------------------------------
+# identify fibroblasts ---------------------------------------------------------------------------------------------
 
-meta = read_csv("data/circ_MI/meta_circMI.csv")
-files = readRDS("data/circ_MI/file_meta.rds")
+meta = read_csv(paste0(directory, "data/circ_MI/meta_circMI.csv"))
+files = readRDS(paste0(directory, "data/circ_MI/file_meta.rds"))
 
 meta= meta %>% left_join(files %>% select(-file.path) %>% rename(Extract.Name = filename.short))
 

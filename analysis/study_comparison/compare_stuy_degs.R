@@ -22,9 +22,12 @@ library(ggvenn)
 objs= readRDS( "output/fib_integration/marker_list/intstate07_singlestudyDEG.rds")
 objs= readRDS( "output/fib_integration/marker_list/intstate0_singlestudyDEG.rds")
 
-gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
+gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled2.rds")
+gene_signatures = readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
+gene_signatures$total= gene_signatures$total[names(gene_signatures$total)!="MI" ]
+
 logFCs=readRDS(file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
-names(logFCs)=c("HFpEF", "MI", "AngII")
+#names(logFCs)=c("HFpEF", "MI", "AngII")
 
 # 1st) plot DE genes together -----------------------------------------------------------------
 #x= logFCs$hfpef
@@ -323,25 +326,112 @@ logFCs2= map(names(logFCs), function(y){
   logFCs[[y]]%>% dplyr::rename(!!y := avg_log2FC)%>% rownames_to_column("gene")
 })
 
-fc.df= logFCs2[[1]] %>% full_join(logFCs2[[2]], by= "gene") %>% full_join(logFCs2[[3]], by= "gene")
+fc.df= logFCs2[[1]] %>%
+  full_join(logFCs2[[2]], by= "gene") %>%
+  full_join(logFCs2[[3]], by= "gene") %>%
+  full_join(logFCs2[[4]], by= "gene")
 
 #heatmap
 
 #create dfs to store correlation estimates
-studies= names(gene_signatures$unique)
+studies= names(gene_signatures$total)
 comb.studies= c("MI.AngII", "HFpEF.AngII", "HFpEF.MI")
 
-cor.df <- data.frame(matrix(ncol = 3, nrow = 3))
-rownames(cor.df)=studies
-colnames(cor.df)=comb.studies
+cor.df <- data.frame(matrix(ncol = 4, nrow = 4))
+rownames(cor.df)=colnames(cor.df) = studies
+#colnames(cor.df)=comb.studies
 cor.p= cor.df
 
 # loop to perform correlations for unique gene sets
-for (sig in studies){
-  df= fc.df %>% filter(gene %in% gene_signatures$unique[[sig]])
+corr.frame= lapply(studies, function(sig){
 
-  #mi.ang
-  res= cor.test(df$MI,df$AngII )
+  df= fc.df %>% filter(gene %in% gene_signatures$total[[sig]])
+
+  for(s.x in studies){
+    for(s.y in studies){
+      print(s.x)
+      print(s.y)
+      res= cor.test(df[[s.x]],df[[s.y]])
+      cor.p[s.x, s.y] = res$p.value
+      cor.df[s.x, s.y] = res$estimate
+    }
+  }
+  return(list(cor.df, cor.p))
+})
+
+names(corr.frame)= studies
+
+pls = map(corr.frame, function(x){
+
+  # tidy the data for plotting
+  cor.df= x[[1]] %>% rownames_to_column("signature") %>% pivot_longer(-signature,names_to= "comparison" ,
+                                                                      values_to = "rho")
+
+  cor.p= x[[2]] %>% rownames_to_column("signature") %>% pivot_longer(-signature,names_to= "comparison" ,
+                                                                    values_to = "p.val")
+
+  p.correlation.comp= cor.df %>% left_join(cor.p) %>%
+    mutate(sig= ifelse(p.val<0.001, "*", ""),
+           comparison = factor(comparison, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
+           signature= factor(signature, levels= c("HFpEF", "AngII", "MI_early", "MI_late")))  %>%
+    ggplot(., aes(x= signature, y = comparison, fill = rho))+
+    geom_tile(color= "black")+
+    scale_fill_gradient2(low= "darkblue", mid= "white", high= "darkred", midpoint = 0, limits= c(-1, 1))+
+    #scale_fill_continuous(c(0,1))+
+    theme_minimal()+
+    geom_text(aes(label= sig))+
+    theme(axis.text= element_text(colour = "black"))+
+    labs(x= "",
+         y= "")+
+    coord_equal()
+
+
+})
+
+cowplot::plot_grid(plotlist = pls)
+
+res= map(names(corr.frame), function(x){
+  #x="HFpEF"
+  # tidy the data for plotting
+  cor.df= corr.frame[[x]][[1]] %>% rownames_to_column("signature") %>% pivot_longer(-signature,names_to= "comparison" ,
+                                                                      values_to = "rho")%>%
+    filter(signature== x)
+
+  cor.p=corr.frame[[x]][[2]] %>% rownames_to_column("signature") %>% pivot_longer(-signature,names_to= "comparison" ,
+                                                                     values_to = "p.val")%>%
+    filter(signature== x)
+
+  cor.df %>% left_join(cor.p)
+})%>% do.call(rbind, .)
+
+res
+
+p.correlation.comp= res %>%
+  mutate(p.val= p.adjust(p.val, "BH"))%>%
+  mutate(sig= ifelse(p.val<0.001, "**",
+                     ifelse(p.val<0.01, "**",
+                            ifelse(p.val<0.05, "*", ""))),
+         sig = ifelse(signature== comparison, "", sig),
+         rho = ifelse(signature== comparison, NA, rho),
+         comparison = factor(comparison, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
+         signature= factor(signature, levels= c("HFpEF", "AngII", "MI_early", "MI_late"))) %>%
+  ggplot(., aes(x= signature, y = comparison, fill = rho))+
+  geom_tile(color= "black")+
+  scale_fill_gradient(low= "white", high= "darkred")+
+  theme_minimal()+
+  geom_text(aes(label= sig))+
+  theme(axis.text= element_text(colour = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  coord_equal()
+
+pdf(file = "output/figures/main/Fig2/deg.corr.pdf",
+    width= 3,
+    height= 3)
+unify_axis(p.correlation.comp)+
+  theme(axis.text.x = element_text(angle= 45, hjust= 1))
+dev.off()
+#mi.ang
+  res= cor.test(df$MI_late,df$AngII )
   cor.df[sig, 1]= res$estimate
   cor.p[sig, 1]= res$p.value
 

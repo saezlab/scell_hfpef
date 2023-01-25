@@ -16,7 +16,9 @@ library(tidyverse)
 library(WriteXLS)
 
 source("code/utils.R")
-integrated_data = readRDS( "output/seu.objs/study_integrations/harmony_fib_filt.rds")
+source("code/utils_funcomics.R")
+
+integrated_data = readRDS( "output/seu.objs/study_integrations/harmony_fib_filt_2.rds")
 msigDB= readRDS("data/prior_knowledge/msigDB.mouse_translated.rds")
 
 # find marker  --------------------------------------------------------------------------------
@@ -48,7 +50,7 @@ local.genesets= split(marker.fibs.genes$gene, marker.fibs.genes$cluster)
 int.fib.marker= int.fib.marker%>% group_by(cluster) %>%
   filter(p_val_adj <0.05,
          avg_log2FC>0)%>%
-  slice(1:cut.off.state)
+  dplyr::slice(1:cut.off.state)
 int.genesets= split(int.fib.marker$gene, int.fib.marker$cluster)
 
 
@@ -74,6 +76,7 @@ names(NABA_SETS_mouse)= str_replace_all(names(NABA_SETS_mouse),"NABA_", "")
 names(NABA_SETS_mouse)= str_to_title(names(NABA_SETS_mouse))
 NABA_SETS_mouse
 
+saveRDS(NABA_SETS_mouse, "data/prior_knowledge/")
 # use cell state marker of fibroblasts to track myofibs in fib atlas --------------------------
 add_module_for_genesets= function(genesets, seurat_obj, col.name){
 
@@ -196,7 +199,7 @@ dev.off()
 
 
 # do ORA in addition to module score ----------------------------------------------------------
-plot_ORA=function(Ora_res ){
+plot_ORA=function(Ora_res , gsets= NULL){
 
   for (i in names(Ora_res)){
     Ora_res[[i]] = Ora_res[[i]] %>% mutate(cluster= i)
@@ -209,10 +212,13 @@ plot_ORA=function(Ora_res ){
            stars= ifelse(corr_p_value<0.01, "**", stars),
            stars= ifelse(corr_p_value<0.001, "***",stars))
 
+  if(!is.null(gsets))
+    {Ora_res2 = Ora_res2%>% filter(gset %in% gsets)}
+
 
   p.p.ora= ggplot(Ora_res2, aes(x=  cluster,
                                 y= gset, fill= -log10(corr_p_value)))+
-    geom_tile()+
+    geom_tile(color= "black")+
     scale_fill_gradient2(low= "white" , high= "red")+
     geom_text(mapping = aes(label= stars))+
     theme_minimal()+
@@ -227,18 +233,27 @@ plot_ORA=function(Ora_res ){
 }
 
 #NABA
+
+NABA_select= NABA_SETS_mouse[!names(NABA_SETS_mouse) %in% c("Ecm_affiliated","Ecm_regulators", "Secreted_factors","Matrisome")]
 Ora_res= lapply(int.genesets, function(x){
-  GSE_analysis(x, NABA_select)
+  GSE_analysis(x, NABA_SETS_mouse)
 
 })
 
-p.naba= plot_ORA(Ora_res)
+p.naba= plot_ORA(Ora_res, c("Basement_membranes"  ,
+                            "Collagens",
+                            "Core_matrisome",
+                            "Ecm_glycoproteins"
+                            )
+                 )
+unify_axis(p.naba)
+pdf("output/figures/main/Fig2/fibroblast_naba_ORA.pdf",
+    width = 4.9,
+    height= 3.5)
+unify_axis(p.naba)+
+  theme(axis.title =  element_blank())+
+  coord_equal()
 
-pdf("output/figures/integration_studies/fibroblast_naba_ORA.pdf",
-    width = 4.5,
-    height= 2.5)
-
-p.naba
 dev.off()
 ## 2) DE genes from nature sc fibro atlas paper
 steady.state= readRDS("data/prior_knowledge/fibro_atlas_deg/fibro_atlas_steady_state_marker.rds")
@@ -260,6 +275,8 @@ pert.state= map(pert.state, function(x){
     pull(Gene)
 })
 
+names(pert.state)= str_replace_all(names(pert.state), pattern = "AllMarkers_", "")
+names(steady.genes)= str_replace_all(names(steady.genes), pattern = "AllMarkers_", "")
 Ora_res.steady= lapply(int.genesets, function(x){
   GSE_analysis(x , steady.genes)
 
@@ -273,7 +290,7 @@ Ora_res.pert= lapply(int.genesets, function(x){
 p.pert= plot_ORA(Ora_res.pert)
 p.stead= plot_ORA(Ora_res.steady)
 
-pdf("output/figures/integration_studies/fibroblast_integration_state_ORA.pdf",
+pdf("output/figures/supp/fibroblast_integration_state_ORA.pdf",
     width = 5,
     height= 5)
 cowplot::plot_grid(p.pert+ggtitle("perturbed state marker"),
@@ -289,46 +306,77 @@ Ora_res= lapply(int.genesets, function(x){
 
 })
 
-
+iont
 marker.comp= plot_ORA(Ora_res)
 saveRDS(marker.comp, "output/figures/main/Fig3/marker.comp.rds")
 
 # MSIG_DB -------------------------------------------------------------------------------------
-
+msigDB_m= msigDB
 
 Ora_res= lapply(names(msigDB_m), function(y){
   lapply(names(int.genesets), function(x){
-    GSE_analysis(int.genesets[[x]],msigDB_m[[y]])%>%
+    GSE_analysis(int.genesets[[x]],Annotation_DB = msigDB_m[[y]])%>%
       mutate(msig_group= y,
              cluster= x)
     })%>% do.call(rbind,. )%>% as_tibble()
 })%>% do.call(rbind,. )%>% as_tibble()
 
-Ora_res
+
+Ora_res.s= Ora_res %>% select(gset, GeneNames, p_value, corr_p_value, cluster, msig_group)
+
+# merge with GO res:
+GO.res= readRDS("output/GO_cellstates_int.rds")
+GO.res$mf= GO.res$mf %>% rename(gset= Term,
+                     #n.genes = Overlap,
+                  p_value= P.value,
+                  corr_p_value= Adjusted.P.value ,
+                  GeneNames= Genes)%>%
+  mutate(msig_group = "GO_MF")%>%
+  select(gset,GeneNames, p_value,corr_p_value, cluster, msig_group)
+GO.res$bp= GO.res$bp %>% rename(gset= Term,
+                                #n.genes = Overlap,
+                                p_value= P.value,
+                                corr_p_value= Adjusted.P.value ,
+                                GeneNames= Genes)%>%
+  mutate(msig_group = "GO_BP")%>%
+  select(gset,GeneNames, p_value,corr_p_value, cluster, msig_group)
+
+
+Ora_res2= rbind(GO.res$mf, Ora_res.s, GO.res$bp)
 
 ## clean names:
 #Ora_res$gset= clean_names(unlist(Ora_res$gset))
 
-
-Ora_res2= Ora_res %>%
-  distinct(gset, GeneNames, p_value, cluster)%>%
+Ora_res2= Ora_res2 %>%
+  distinct(gset, GeneNames, p_value, cluster,msig_group)%>%
   #rename(cluster= gset) %>%
   mutate(corr_p_value = p.adjust(p_value, method= "BH"))%>%
-  mutate(stars= ifelse(corr_p_value<0.05, "*", ""),
-         stars= ifelse(corr_p_value<0.01, "**", stars),
-         stars= ifelse(corr_p_value<0.001, "***",stars))
-
+  mutate(stars= ifelse(corr_p_value<0.1, "*", ""),
+         stars= ifelse(corr_p_value<0.05, "**", stars),
+         stars= ifelse(corr_p_value<0.01, "***",stars))
+Ora_res2$GeneNames= str_replace_all(Ora_res2$GeneNames, ";", ",")
+vec= str_split(Ora_res2$GeneNames, pattern = ",")
+vec= unlist(map(vec, length))
+Ora_res2$n.genes= vec
+Ora_res2
 
 ### order gene sets:
 #1 get enriched genesets per cluster
 #2 calculate jaccard distancs of enriched genes (overlap) between genesets
 #3 hclust to define similar gene set groups
 #4 plot each gene set group separately
+
 Ora_res2 %>% group_by(cluster)%>% filter(corr_p_value<0.001)
 Ora_res2 %>% filter(cluster==2)%>% arrange(corr_p_value) %>% print(n=100)
 
-Ora_res2 %>% group_by(gset)%>%
-  filter(any(corr_p_value<0.05))%>%
+sigs= Ora_res2 %>% group_by(gset)%>%
+  filter((corr_p_value<0.1))%>%
+  arrange(corr_p_value)
+
+listed.sigs= split(sigs, sigs$cluster)
+WriteXLS(listed.sigs, "output/msigs_int_state_marker.xls")
+
+sigs%>%
  ggplot(., aes(x=  cluster,
                               y= gset, fill= -log10(corr_p_value)))+
   geom_tile()+
@@ -345,9 +393,174 @@ Ora_res2 %>% group_by(gset)%>%
 p.p.ora
 
 
+g.sets= c(#0  "REACTOME_ECM_PROTEOGLYCANS",
+          #"KEGG_ECM_RECEPTOR_INTERACTION",
+          "REACTOME_DEGRADATION_OF_THE_EXTRACELLULAR_MATRIX",
+         # "REACTOME_ASSEMBLY_OF_COLLAGEN_FIBRILS_AND_OTHER_MULTIMERIC_STRUCTURES",
+          "REACTOME_COLLAGEN_BIOSYNTHESIS_AND_MODIFYING_ENZYMES",
+         #"REACTOME_INTEGRIN_CELL_SURFACE_INTERACTIONS",
+          "REACTOME_COLLAGEN_FORMATION",
+         #"REACTOME_NON_INTEGRIN_MEMBRANE_ECM_INTERACTIONS",
+         "REACTOME_NCAM1_INTERACTIONS",
+        "cardiac epithelial to mesenchymal transition (GO:0060317)",
+         "extracellular matrix disassembly (GO:0022617)",
+         #"extracellular matrix organization (GO:0030198)",
+         #"collagen fibril organization (GO:0030199)",
+         "regulation of angiogenesis (GO:0045765)",
+         "basement membrane organization (GO:0071711)",
+
+
+
+
+          #1
+
+          "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+         "REACTOME_REGULATION_OF_INSULIN_LIKE_GROWTH_FACTOR_IGF_TRANSPORT_AND_UPTAKE_BY_INSULIN_LIKE_GROWTH_FACTOR_BINDING_PROTEINS_IGFBPS",
+          #"PID_BMP_PATHWAY",
+          #"NABA_ECM_GLYCOPROTEINS",
+          #"BIOCARTA_GHRELIN_PATHWAY",
+          "positive regulation of vascular endothelial growth factor production (GO:0010575)",
+          "regulation of insulin-like growth factor receptor signaling pathway (GO:0043567)",
+          "regulation of ossification (GO:0030278)",
+          "regulated exocytosis (GO:0045055)",
+
+
+         #2
+         "REACTOME_ANTIGEN_PROCESSING_CROSS_PRESENTATION",
+         "REACTOME_CELLULAR_RESPONSE_TO_HYPOXIA",
+          "REACTOME_SIGNALING_BY_NOTCH4",
+          "REACTOME_REGULATION_OF_APOPTOSIS",
+          "REACTOME_REGULATION_OF_RUNX3_EXPRESSION_AND_ACTIVITY",
+          "REACTOME_FOLDING_OF_ACTIN_BY_CCT_TRIC",
+         "REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC",
+          "antigen processing and presentation of exogenous peptide antigen via MHC class I (GO:0042590)",
+         #"HALLMARK_HYPOXIA",
+
+          #3
+         "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
+         "REACTOME_COLLAGEN_FORMATION",
+         #"REACTOME_COLLAGEN_CHAIN_TRIMERIZATION",
+         #"REACTOME_ASSEMBLY_OF_COLLAGEN_FIBRILS_AND_OTHER_MULTIMERIC_STRUCTURES",
+         "REACTOME_ELASTIC_FIBRE_FORMATION",
+         "REACTOME_SYNDECAN_INTERACTIONS",
+         #"KEGG_ECM_RECEPTOR_INTERACTION",
+         "KEGG_FOCAL_ADHESION",
+         #"REACTOME_MOLECULES_ASSOCIATED_WITH_ELASTIC_FIBRES",
+          "skeletal system development (GO:0001501)",
+          "supramolecular fiber organization (GO:0097435)",
+          "cell-matrix adhesion (GO:0007160)",
+          "regulation of bone mineralization (GO:0030500)",
+
+         #4
+          "regulation of focal adhesion assembly (GO:0051893)",
+          "cellular response to growth factor stimulus (GO:0071363)",
+
+
+         #5
+         "REACTOME_ELASTIC_FIBRE_FORMATION",
+         #"HALLMARK_COAGULATION",
+         #"REACTOME_PLATELET_ACTIVATION_SIGNALING_AND_AGGREGATION",
+          "positive regulation of Wnt signaling pathway, planar cell polarity pathway (GO:2000096)",
+         # "negative regulation of Wnt signaling pathway (GO:0030178)",
+          "regulation of Wnt signaling pathway (GO:0030111)",
+          "endochondral bone morphogenesis (GO:0060350)",
+
+         #6
+         "HALLMARK_TNFA_SIGNALING_VIA_NFKB",
+        #"HALLMARK_MTORC1_SIGNALING",
+         "HALLMARK_INFLAMMATORY_RESPONSE",
+        # "REACTOME_SIGNALING_BY_INTERLEUKINS",
+         "HALLMARK_UNFOLDED_PROTEIN_RESPONSE",
+
+          "cytokine-mediated signaling pathway (GO:0019221)",
+          "positive regulation of cytokine production (GO:0001819)",
+          "regulation of macrophage activation (GO:0043030)",
+          "positive regulation of fibroblast proliferation (GO:0048146)",
+
+         #7
+         "HALLMARK_INTERFERON_GAMMA_RESPONSE",
+         "REACTOME_INTERFERON_SIGNALING",
+         "REACTOME_INTERFERON_ALPHA_BETA_SIGNALING",
+         "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM",
+          "cytokine-mediated signaling pathway (GO:0019221)"
+         # "cellular response to type I interferon (GO:0071357)"
+
+         )
+
+Ora_res3= Ora_res2%>%
+  filter(gset %in% g.sets)%>%
+  mutate(gset = factor(gset, levels= unique(g.sets)))
+
+# # string cosmetic for plotting
+
+clean_strings= function(g.sets){
+  g.sets2=  gsub(pattern = "\\(.*",replacement = "",x =g.sets)
+  g.sets2= str_remove_all(str_remove_all(str_remove_all(g.sets2, "KEGG_"), "REACTOME_"), "HALLMARK_")
+  g.sets2= str_replace_all(g.sets2 , pattern = "_", " ")
+  g.sets2= str_to_title(g.sets2)
+  g.sets2
+
+}
+g.set2= clean_strings(unique(g.sets))
+
+Ora_res3$gset= clean_strings(Ora_res3$gset)
+
+p.p= Ora_res3%>%
+
+  mutate(gset= factor(gset, levels= g.set2))%>%
+  ggplot(., aes(x=  cluster,
+                y= (gset), fill= -log10(corr_p_value)))+
+  geom_tile(col = "grey")+
+  scale_fill_gradient2(low= "white", mid = "red", high= "darkred", midpoint= 15)+
+  #scale_fill_gradient(low= "white", high= "red")+
+  geom_text(mapping = aes(label= stars))+
+  theme_minimal()+
+  labs(fill= "-log10(q-value)",
+       x= "IFS", y= "")+
+  theme(axis.text.x= element_text(angle=40, hjust= 1, size= 10),
+        axis.title = element_blank(),
+        axis.text= element_text(color ="black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        axis.text.y = element_text( colour = "black")
+  )#+
+#library(scales)
+ #scale_y_discrete( labels = label_wrap(50))
+# Ora_res3%>% filter(grepl("Elastic", gset), cluster== 4)
+
+ p.p
+pdf("output/figures/main/Fig2/gsea_statemarker.pdf",
+    width= 15, height= 9)
+unify_axis(p.p)+coord_equal()
+dev.off()
+
+pdf("output/figures/main/Fig2/gsea_statemarker.pdf",
+    width=20, height= 6)
+p.p+
+  coord_flip()+
+  theme(axis.text.x = element_text(angle=90, hjust= 1))
+
+
+dev.off()
+
+
+
+Ora_res2$gset
+p.p.ora
+ clean_names(df = Ora_res2, col = "gset")
+
+df= sigs %>% filter(!grepl("NABA", gset))%>%
+  group_by(cluster)%>%
+  slice_max(order_by = -corr_p_value, n=10)%>% distinct(gset, cluster, corr_p_value, stars)
+
+ggplot(df, aes(x= cluster, y= gset, fill = -log10(corr_p_value)))+
+  geom_tile()
+
+# gene set correlations -----------------------------------------------------------------------
+
+
 # test an idea for geneset correlation
 df=Ora_res2 %>% filter(cluster==2,
-            #           msig_group== "MSIGDB_HALLMARK",
+                       #           msig_group== "MSIGDB_HALLMARK",
                        corr_p_value<0.01)%>% arrange(corr_p_value)
 
 df= df%>% group_by(gset)%>% mutate(corr_p_value= min(corr_p_value))%>% arrange(corr_p_value)%>% distinct(gset, .keep_all = T)

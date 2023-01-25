@@ -28,7 +28,7 @@ source("code/utils.R")
 msigDB= readRDS("/home/jan/R-projects/sc_hfpef/data/prior_knowledge/Genesets_Dec19.rds")
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 gene_translate= readRDS( "data/prior_knowledge/gene_translate.rds")
-
+gene_signatures$total = gene_signatures$total[c("HFpEF", "AngII", "MI_early", "MI_late")]
 
 # data prep -----------------------------------------------------------------------------------
 
@@ -40,6 +40,11 @@ clean_names= function(string2){
     paste(unlist(xy), collapse = "_")
   } )
   return(unlist(clean.names))
+}
+
+clean_names_plot= function(string2){
+  string2= str_replace_all(string2, "_", " ")
+  str_to_title(string2)
 }
 
 #select Msig DB genes of interest and translate genesets to mouse
@@ -71,7 +76,7 @@ msigDB_m <-readRDS( "data/prior_knowledge/msigDB.mouse_translated.rds")
 # perform ORA ---------------------------------------------------------------------------------
 
 ## ora with both sets:
-msig_sigs= map(names(gene_signatures$unique), function(x){
+msig_sigs= map(names(gene_signatures$total), function(x){
   lapply(names(msigDB_m), function(y){
     GSE_analysis(gene_signatures$total[[x]],msigDB_m[[y]])%>%
       mutate(study=x,
@@ -86,7 +91,7 @@ msig_sigs= map(names(gene_signatures$unique), function(x){
 plot_set= clean_names(plot_set)
 
 hfpef_hits=msig_sigs %>%
-  filter( study== "HFpEF", corr_p_value<0.01)%>%
+  filter( study== "HFpEF", corr_p_value<0.001)%>%
   arrange(corr_p_value)%>% pull(gset)%>% unique()
 
 msig_sigs %>%
@@ -97,6 +102,33 @@ msig_sigs %>%
 angii_hits=msig_sigs %>%
   filter( study== "AngII", corr_p_value<0.01)%>%
   arrange(corr_p_value)%>%  pull(gset)%>% unique()
+
+msig_sigs %>%
+  filter( study== "HFpEF", corr_p_value<0.2)%>%
+  arrange(corr_p_value)%>%
+  filter(grepl("Ech1", GeneNames))
+# plot as heatmap:
+
+x1= msig_sigs %>% filter(gset %in% hfpef_hits)%>%
+  dplyr::distinct(gset, study, corr_p_value)%>%
+  mutate(corr_p_value= -log10(corr_p_value))%>%
+  filter(study != "MI")%>%
+  #filter(gset == "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION")
+  pivot_wider(names_from = study, values_from=  corr_p_value, values_fn= mean)
+
+x1= as.data.frame(x1)%>% column_to_rownames("gset")
+library(circlize)
+col_fun = colorRamp2(c(min(x1 ,na.rm = T), 0, max(x1, na.rm = T)), c("white", "red", "darkred"))
+rownames(x1)= clean_names(rownames(x1))
+Heatmap(x1[,c(1,2,4,3)],
+        col = col_fun,
+        cluster_columns = F,
+        name = "-log10(q-value)",
+        column_names_rot = 40,
+        border = T,
+        rect_gp = gpar(col = "darkgrey", lty = 1, size= 0.1),
+        row_names_gp = gpar(fontsize = 10),
+        column_names_gp = gpar(fontsize = 10))
 
 # hfpef_hits= msig_sigs%>% filter(grepl("INTEGRIN", gset))%>% filter( study== "HFpEF", corr_p_value<0.1)%>%
 #   arrange(corr_p_value)%>% pull(gset)%>% unique()
@@ -122,6 +154,7 @@ hfpef_hits= msig_sigs%>%
 
 # final plot set manually curated from results above
 plot_set= c("HALLMARK_ANGIOGENESIS",
+            "HALLMARK_ADIPOGENESIS",
             "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION" ,
             "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" ,
             "NABA_MATRISOME",
@@ -142,11 +175,11 @@ plot_set= c("HALLMARK_ANGIOGENESIS",
             #"CANONICAL_DEGRADATION_OF_THE_EXTRACELLULAR_MATRIX"
             )
 
-plot_set= clean_names(plot_set)
+#plot_set= clean_names(plot_set)
 
 
 p.msig= msig_sigs %>%
-   mutate(corr_p_value = p.adjust(p_value, method = "BH"))%>% #we correct again as all test are done now
+   #mutate(corr_p_value = p.adjust(p_value, method = "BH"))%>% #we correct again as all test are done now
    filter(gset %in% plot_set)%>%
    mutate(#gset= factor(gset, levels= rev(plot_set)),
          sig= ifelse(corr_p_value<1e-2, "*", ""),
@@ -176,7 +209,7 @@ library(dorothea)
 data("dorothea_mm")
 
 logFCs=readRDS(file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
-names(logFCs)=c("HFpEF", "MI", "AngII")
+
 logFC.c= lapply(names(logFCs), function(x){
   rownames_to_column(logFCs[[x]], "gene") %>%
     mutate(study= x)
@@ -208,7 +241,7 @@ p.TFs= df %>% group_by(condition)%>%
   filter(statistic== "ulm")
 
 p.pTFS = p.TFs %>%distinct(condition, source, score, sig)%>%
-  mutate(condition=factor(condition, levels= c("HFpEF", "MI", "AngII")) )%>%
+  mutate(condition=factor(condition, levels= c("HFpEF", "MI_early","MI_late", "AngII")) )%>%
   ggplot(., aes(x= condition, y= source, fill = score))+
   geom_tile()+
   geom_text(aes(label= sig))+
@@ -241,33 +274,36 @@ logFC.c %>% filter(gene %in% geneS)
 
 # progeny -------------------------------------------------------------------------------------
 #progeny
-source("code/utils_funcomics.R")
+
 gex= logFC.c %>%
-  select(-pct.1, -pct.2) %>%
+  dplyr::select(-pct.1, -pct.2) %>%
   pivot_wider(names_from = study, values_from= avg_log2FC) %>%
-  distinct(gene, HFpEF, MI, AngII)
+  distinct(gene, HFpEF, MI_early, MI_late, AngII)
 
 gex= as.matrix(column_to_rownames(as.data.frame(gex), "gene"))
 
 M.Progeny = run_progeny(gex, .label = colnames(gex))
 
 hmap= Heatmap(t(M.Progeny), cluster_columns = F, name = "Progeny_score")
-hmap= Heatmap(t(M.Progeny),cluster_rows = T,
+hmap= Heatmap(t(M.Progeny)[, c(1,2,4,3)],cluster_rows = T,
 
         cluster_columns = F,
-        name = "progeny \n score",
-        column_names_rot = 40,
+        name = "PROGENy \n score",
+        column_names_rot = 90,
         border = T,
+        row_names_side= "left",
         #rect_gp = gpar(ol = "black", lty = 1),
         row_names_gp = gpar(fontsize = 10),
-        column_names_gp = gpar(fontsize = 10))
-
+        column_names_gp = gpar(fontsize = 10),
+        rect_gp = gpar(col = "darkgrey", lty = 1, size= 0.1),
+        show_row_dend = FALSE
+        )
+hmap
 pdf("output/figures/main/Fig4/progeny_study_contrast.pdf",
     width= 2.6,
     height= 4)
 print(hmap)
 dev.off()
-
 
 # gset plot -----------------------------------------------------------------------------------
 genes= msigDB_m$MSIGDB_CANONICAL$PID_INTEGRIN1_PATHWAY
@@ -344,10 +380,14 @@ hfpef= map(unique(trees$HFpEF$resolutions.$res.7), function(x){
       sig= ifelse(corr_p_value<0.01, "**", sig),
       sig= ifelse(corr_p_value<0.001, "***", sig),
       gset= clean_names(gset))%>%
-    mutate(study= factor(study, levels= c("HFpEF", "MI", "AngII")))%>%
+    filter(! gset %in% c("PRION_DISEASES",
+                         "SMALL_CELL_LUNG_CANCER",
+                         "DISEASE"))  %>%
+    mutate(study= factor(study, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
+           gset = clean_names_plot(gset))%>%
     ggplot(., aes(x=  study,
                   y= gset, fill= -log10(corr_p_value)))+
-    geom_tile()+
+    geom_tile(color = "darkgrey")+
     scale_fill_gradient2(low= "white" , high= "red" )+
     # scale_fill_gradientn(colors= c("white", "red"),
     #                       breaks=c(0,2,4,6,8,10),#labels=c("Minimum",0.5,"Maximum"),
@@ -373,10 +413,11 @@ angii= map(unique(trees$AngII$resolutions.$res.7), function(x){
       sig= ifelse(corr_p_value<0.01, "**", sig),
       sig= ifelse(corr_p_value<0.001, "***", sig),
       gset= clean_names(gset))%>%
-    mutate(study= factor(study, levels= c("HFpEF", "MI", "AngII")))%>%
+    mutate(study= factor(study, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
+           gset = clean_names_plot(gset))%>%
     ggplot(., aes(x=  study,
                   y= gset, fill= -log10(corr_p_value)))+
-    geom_tile()+
+    geom_tile(color = "darkgrey")+
     scale_fill_gradient2(low= "white" , high= "red")+
     geom_text(mapping = aes(label= sig))+
     #facet_grid(rows=vars(value))+
@@ -406,15 +447,17 @@ p.1= cowplot::plot_grid(#hfpef[[1]]+ theme(legend.position = "none"),
 p.1
 
 p.2= plot_grid(p.1, legend_b, rel_widths = c(1,0.3))
+unify_axis(p.2)
 pdf("output/figures/main/Fig4/msig.hfpef_all.pdf",
-    width= 6.5,
+    width= 5.5,
     height= 5)
-p.2
+unify_axis(p.2)
 dev.off()
+
 pdf("output/figures/main/Fig4/msig.hfpef_all2.pdf",
-    width= 5,
-    height= 2)
-hfpef[[1]]
+    width= 5.,
+    height= 2.2)
+(hfpef[[1]])
 dev.off()
 
 
@@ -473,7 +516,6 @@ jacc.dist= dist((onehot.sets), method= "binary")
     select(gset, everything())
 
 
-class(res.$res.7)
   map(unique(res.$res.10), function(x){
     p. =msig_sigs%>%
       filter(gset %in% df)%>%

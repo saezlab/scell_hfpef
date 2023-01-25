@@ -13,6 +13,7 @@
 library(tidyverse)
 library(Seurat)
 library(edgeR)
+library(ComplexHeatmap)
 library(lsa)
 
 seu = readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
@@ -41,12 +42,13 @@ calc_distances= function(cells, pb.de, ratios= F ){
     pb.x= pb.de[[x]]$dge
     pb.x.cpm= cpm(pb.x, log = F)
 
+
     #get hvg:
     seu2= subset(seu, celltype== x)
     seu2= FindVariableFeatures(seu2 )
 
     #reduce pseudobulk to hvg
-    pb.x.cpm= pb.x.cpm[rownames(pb.x.cpm) %in% rownames(HVFInfo(seu2))[1:5000], ]
+    pb.x.cpm= pb.x.cpm[rownames(pb.x.cpm) %in% rownames(HVFInfo(seu2))[1:3000], ]
 
     #eucledian:
     #cpm.dist= as.matrix(dist(t(pb.x.cpm)))
@@ -54,6 +56,7 @@ calc_distances= function(cells, pb.de, ratios= F ){
     #cosine similarity:
     cpm.dist= cosine((pb.x.cpm))
     cpm.dist= 1-cpm.dist
+
 
     # calculate mean distance within groups:
     within.= mean(c(cpm.dist["hf2","hf1"],
@@ -92,9 +95,11 @@ names(pb.de) = str_replace_all(names(pb.de), "T.cell", "T.cells")
 cells=names(pb.de)
 cos.p= calc_distances(cells, pb.de)
 
+
+cos.p2= calc_distances(cells, pb.de, ratios= T)
 #cos.p= calc_distances(cells, pb.de, ratios = T)
 # if ratios were calculated, use this function to perform one sample wilcox
-ps= map(cos.p, function(x){
+ps= map(cos.p2, function(x){
 
   print(unlist(x))
   print(mean(unlist(x)))
@@ -150,6 +155,42 @@ p.distance_ratio
 dev.off()
 
 
+# get.distane.matrix --------------------------------------------------------------------------
+
+calc_distances2= function(cells, pb.de, ratios= F ){
+
+  require(lsa)
+
+  # map pseudobulks per celltype to calculate cosine distances between samples
+  # and return ratio of within and between groups
+  res= map(cells, function(x){
+    print(x)
+    #TMM normalization (cpm with edgeR)
+    pb.x= pb.de[[x]]$dge
+    pb.x.cpm= cpm(pb.x, log = F)
+
+    #get hvg:
+    seu2= subset(seu, celltype== x)
+    seu2= FindVariableFeatures(seu2 )
+
+    #reduce pseudobulk to hvg
+    pb.x.cpm= pb.x.cpm[rownames(pb.x.cpm) %in% rownames(HVFInfo(seu2))[1:3000], ]
+
+    #eucledian:
+    #cpm.dist= as.matrix(dist(t(pb.x.cpm)))
+
+    #cosine similarity:
+    cpm.dist= cosine((pb.x.cpm))
+    cpm.dist= 1-cpm.dist
+
+  })
+
+  names(res)= cells
+  return(res)
+}
+cos.p2= calc_distances2(cells, pb.de)
+
+map(names(cos.p2), function(x){Heatmap(cos.p2[[x]], name = x)})
 # study ---------------------------------------------------------------------------------------
 
 
@@ -331,4 +372,230 @@ pdf(file= "output/figures/integration_studies/sample.distances.cellstates.pdf",
     width= 5, height= 5)
 p.state.distances
 p.dists
+dev.off()
+
+
+# as suggested by Reviewer#3 perform correlation of biol. replicats ---------------------------
+library(ComplexHeatmap)
+pb.df= pb.de.study$pseudobulkedGEX$forte
+target= seu.int[[]]%>%
+  as_tibble()%>%
+  distinct(study, orig.ident, group)
+
+plot_corrs= function(pb.df, study.name){
+
+  #pb.df = pb.de$Endothelial$voom
+  l1= length(colnames(pb.df))
+
+  df= data.frame(matrix(nrow = l1, ncol= l1),row.names = colnames(pb.df))
+  colnames(df)= colnames(pb.df)
+  for( x in rownames(df)){
+    for( y in rownames(df)){
+
+      df[x,y]= cor.test(as.matrix(pb.df)[,x], pb.df[,y], method = "pearson")$estimate
+    }
+
+  }
+
+  target2=
+    target %>% filter(study== study.name)
+  x= target2$group
+  names(x) = target2$orig.ident
+
+  ha = HeatmapAnnotation(group= x, col = list(group= c("ct"= "grey", "hf"= "darkgreen")))
+  #ha2 = rowAnnotation(group= x, row = list(group= c("ct"= "grey", "hf"= "darkgreen")))
+  Heatmap(df, top_annotation = ha)
+}
+p1= plot_corrs(pb.de.study$pseudobulkedGEX$circ, "circ")
+p2= plot_corrs(pb.de.study$pseudobulkedGEX$hfpef, "hfpef")
+p3= plot_corrs(pb.de.study$pseudobulkedGEX$forte, "forte")
+
+pdf(file = "output/figures/supp/correlation.pb.pdf")
+p1
+p2
+p3
+dev.off()
+
+
+## add HVF per study
+
+studies= unique(seu.int@meta.data$study)
+hvf= map(studies, function(x){
+  #get hvg:
+  seu2= subset(seu.int, study== x)
+  seu2= FindVariableFeatures(seu2 )
+
+  #reduce pseudobulk to hvg
+  rownames(HVFInfo(seu2))[1:2000]
+})
+
+names(hvf)= studies
+
+
+plot_corrs2= function(pb.df, study.name){
+
+  #pb.df = pb.de$Endothelial$voom
+  l1= length(colnames(pb.df))
+
+  df= data.frame(matrix(nrow = l1, ncol= l1),row.names = colnames(pb.df))
+  colnames(df)= colnames(pb.df)
+  for( x in rownames(df)){
+    for( y in rownames(df)){
+      print(length(pb.df[hvf[[study.name]],x]))
+      df[x,y]= cor.test((pb.df)[hvf[[study.name]],x], pb.df[hvf[[study.name]],y],
+                        method = "pearson")$estimate
+    }
+
+  }
+
+  target2=
+    target %>% filter(study== study.name)
+  x= target2$group
+  names(x) = target2$orig.ident
+
+  ha = HeatmapAnnotation(group= x, col = list(group= c("ct"= "grey", "hf"= "darkgreen")))
+  #ha2 = rowAnnotation(group= x, row = list(group= c("ct"= "grey", "hf"= "darkgreen")))
+  Heatmap(df, top_annotation = ha)
+}
+
+p1= plot_corrs2(pb.de.study$pseudobulkedGEX$circ, study.name = "circ")
+p2= plot_corrs2(pb.de.study$pseudobulkedGEX$hfpef, "hfpef")
+p3= plot_corrs2(pb.de.study$pseudobulkedGEX$forte, "forte")
+
+
+pdf(file = "output/figures/supp/correlation.pb.hvf.pdf")
+p1
+p2
+p3
+dev.off()
+
+
+# run augur -----------------------------------------------------------------------------------
+ # devtools::install_github("Bioconductor/MatrixGenerics")
+ # devtools::install_github("const-ae/sparseMatrixStats")
+ # devtools::install_github("neurorestore/Augur")
+
+ library(Augur)
+
+ augur = calculate_auc(seu, seu@meta.data,
+                       cell_type_col = "celltype", label_col = "group")
+
+ p1= plot_lollipop(augur) +
+   geom_point(aes(color = cell_type), size = 3) +
+    theme(axis.text.y =  element_text(size= 11),
+         axis.text.x =  element_text(size= 11),
+         legend.position = "none")
+
+ saveRDS(augur, "output/augur.res.rds")
+ augur= readRDS("output/augur.res.rds")
+
+
+
+ DimPlot(seu, reduction = "umap_original_filt")
+
+ aucs = augur$AUC
+ size_sm = 11
+ size_lg = 11
+ range = range(aucs$auc)
+ expand = abs(diff(range)) * 0.1
+ p = aucs %>% ggplot(aes(x = reorder(cell_type, auc), y = auc)) +
+   geom_hline(aes(yintercept = 0.5), linetype = "dotted",
+              size = 0.3) +
+   geom_point(size = 2) +
+   geom_text(aes(label = format(auc,
+                                digits = 3),
+                 y = ifelse(auc < 0.5, 0.5, auc)), size = 3,
+             nudge_y = expand, hjust = 0.5) +
+   geom_segment(aes(xend = cell_type,
+                    yend = 0.5)) +
+   scale_y_continuous("AUC", limits = c(min(range[1] - expand, 0.5), range[2] + expand * 1.5)) +
+   coord_flip() +
+   theme_bw() + theme(axis.text.x = element_text(size = size_sm),
+                      axis.text.y = element_text(size = size_sm), axis.title.x = element_text(size = size_lg),
+                      axis.title.y = element_blank(), panel.grid = element_blank(),
+                      strip.text = element_text(size = size_lg), strip.background = element_blank(),
+                      axis.line.y = element_blank(), axis.line.x = element_blank(),
+                      legend.position = "top", legend.text = element_text(size = size_sm),
+                      legend.title = element_text(size = size_sm),
+                      legend.key.size = unit(0.6,
+                                                                                          "lines"),
+                      legend.margin = margin(rep(0, 4)), legend.background = element_blank(),
+                      plot.margin = margin(1,1,1.5,1.2, "cm"),
+                      plot.title = element_text(size = size_lg, hjust = 0.5))
+pdf("output/figures/supp/augur.pdf",
+    height= 3,
+    width = 5)
+p
+dev.off()
+# run coda ------------------------------------------------------------------------------------
+
+ #install pckgs
+ #BiocManager::install(c("clusterProfiler", "DESeq2", "DOSE", "EnhancedVolcano", "enrichplot", "fabia", "GOfuncR", "Rgraphviz"))
+ #devtools::install_github('kharchenkolab/cacoa')
+ #devtools::install_github("kharchenkolab/sccore", ref="dev")
+ #install.packages('coda.base')
+ #BiocManager::install("DESeq2", force= T)
+ library(cacoa)
+#prepare input
+
+
+ prep_cacoa_input= function(seu,
+                            cell.label="celltype",
+                            group.label= "group",
+                            orig.ident = "orig.ident"){
+
+   x= seu@meta.data%>% as_tibble()%>% distinct(!!as.name(orig.ident), !!as.name(group.label) )
+   sample.groups= x[[group.label]]
+   names(sample.groups)= x[[orig.ident]]
+   sample.groups= as.factor(sample.groups)
+
+   cell.groups= seu@meta.data[[cell.label]]
+   names(cell.groups)= rownames(seu@meta.data)
+   cell.groups= as.factor(cell.groups)
+
+   sample.per.cell= seu@meta.data[[orig.ident]]
+   names(sample.per.cell)= rownames(seu@meta.data)
+   sample.per.cell= as.factor(sample.per.cell)
+
+    return(list("sample.groups"= sample.groups,
+             "cell.groups"=cell.groups,
+             "sample.per.cell"=sample.per.cell)
+          )
+ }
+
+
+input= prep_cacoa_input(seu)
+input$sample.per.cell
+Idents(seu)= seu$orig.ident
+cao <- Cacoa$new(seu, ref.level="ct",
+                 target.level="hfpef",
+                 sample.groups = input$sample.groups,
+                 cell.groups = input$cell.groups,
+                 sample.per.cell = input$sample.per.cell
+                  )
+
+cao$estimateExpressionShiftMagnitudes()
+cao$estimateCellLoadings()
+cao$plotCellLoadings(show.pvals=T)
+cao$estimateDEPerCellType()
+cao$estimateDEStabilityPerCellType(top.n.genes = 50)
+cao$plotDEStabilityPerCellType()
+
+saveRDS(cao, "output/cao.obj.rds")
+cao= readRDS("output/cao.obj.rds")
+
+cao$plotExpressionShiftMagnitudes(notch= F)
+cao$plotNumberOfDEGenes()
+cao$plotCellGroupSizes()
+cao$plotVolcano()
+
+#save plots
+
+pdf("output/figures/coa.res.pdf")
+p1
+cao$plotCellLoadings(show.pvals=T)
+cao$plotExpressionShiftMagnitudes(notch= F)
+cao$plotNumberOfDEGenes()
+cao$plotCellGroupSizes()
+cao$plotVolcano()
 dev.off()

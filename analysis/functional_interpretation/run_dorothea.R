@@ -24,6 +24,7 @@ library(biomaRt)
 source("analysis/utils.R")
 
 seu= readRDS("output/seu.objs/cell.state.obj.list.rds")
+logFCs = readRDS("output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
 
 # Prepare reg.networks -------------------------------------
 
@@ -32,62 +33,193 @@ data("dorothea_mm")
 
 regulons= dorothea_mm %>%
   filter(confidence %in% c("A", "B", "C")) %>%
-  mutate(likelihood=1)
-#
-# run_dorothea= function(gex.profile, regulons){
-#
-#   dec.res = decouple(gex.profile,
-#                      network = regulons,
-#                      statistics ="wmean",
-#                      .source ="tf",
-#                      .target = "target",
-#                     consensus_score = F
-#                     )
-#
-#
-#   p1= dec.res  %>% filter(statistic== "corr_wmean")%>% ggplot( aes(x= condition, y= source, fill = score))+
-#     geom_tile()+
-#     scale_fill_gradient2(low= "blue", mid= "white", high= "red")
-#
-#   print(p1)
-#
-#   dec.res.matrix= dec.res %>%
-#     filter(statistic== "corr_wmean") %>%
-#     dplyr::select(score, source, condition) %>%
-#     pivot_wider(names_from = source, values_from = score)
-#
-#   df= column_to_rownames(dec.res.matrix,"condition")
-#   df= scale(df)
-#   df= t(df)
-#   p2= Heatmap(df)
-#
-# ####  this part uses the raw corrected means to calculate fold changes between both groups and selects TF based on an absolute log2 FC > 1
-#   ## however we comparing the scale of the different samples here.
-# tf_fc2= t(column_to_rownames(dec.res.matrix, "condition")) %>% as.data.frame %>% rownames_to_column("tf") %>% as_tibble %>%
-#     mutate(sum1= (hf1+hf2),
-#            sum2= (ct1+ct2),
-#            fc= sum1/sum2,
-#            logfc = log2(fc)) %>%
-#     arrange(desc(logfc))
-#
-#   df_match= as_tibble((df)) %>%
-#     mutate(tf= rownames(df))   %>%
-#     filter(sign(hf1)==sign(hf2),
-#            sign(ct1)== sign(ct2))
-#
-#   df_match= column_to_rownames(df_match, "tf")
-#
-#   p3= Heatmap(df_match)
-#
-#   return(list("P"= list(p1, p2,p3),
-#               "tf"= rownames(df_match),
-#               "tf_log2fc"= tf_fc2,
-#               "df_scaled"= df,
-#               "df"= dec.res
-#               )
-#          )
-#
-#   }
+  mutate(likelihood=1)%>%
+  rename(source= tf)
+
+tfs.corr= decoupleR::check_corr(network= regulons)%>% filter(correlation ==1)%>% pull(source)
+regulons= regulons%>% filter(!source %in% tfs.corr)
+
+
+x= merge(logFCs$HFpEF,logFCs$AngII,
+         by="row.names",
+         all.x=F,
+         all.y= F,
+         suffixes=c("HFpEF", "AngII"))
+
+y= merge(logFCs$MI_late,logFCs$MI_early,
+         by="row.names",
+         all.x=F,
+         all.y= F,
+         suffixes=c("MI_late", "MI_early"))
+
+xy= merge(x, y,by="Row.names",
+      all.x=F,
+      all.y= F )
+
+
+df= xy[,grepl(x = colnames(xy),pattern = "avg_log2")]
+rownames(df)= xy$Row.names
+
+#remove NA
+
+dec.res= decouple(mat = as.matrix(df),
+            network = regulons,
+            statistics = "mlm")
+
+dec.res=
+  dec.res %>% mutate(condition= str_replace_all(condition, "avg_log2FC", ""),
+                     p_value= p.adjust(p_value,method= "BH"),
+                     stars= ifelse(p_value<0.001, "***",
+                                   ifelse(p_value<0.01, "**",
+                                          ifelse(p_value<0.05, "*", "")
+                                          )
+                                   )
+                     )
+
+##plot sig TFs per study:
+pls= map(unique(dec.res$condition), function(x){
+  tfs= dec.res%>% filter(condition== x,
+                         statistic== "mlm",
+                    p_value <0.05)%>%
+    arrange((score))%>%
+    pull(source)
+
+  p.df= dec.res %>%
+    filter(source %in% tfs)%>%
+    mutate(source= factor(source, levels = tfs),
+           condition=factor(condition, levels= c("HFpEF", "AngII", "MI_early", "MI_late")))
+  range(p.df$score)
+  p.df%>% arrange(desc(score))
+  p= p.df %>%
+    ggplot(., aes(x= condition, y= source, fill = score,label =stars))+
+    geom_tile(color ="darkgrey")+
+    scale_fill_gradient2(low= "blue", mid= "white", high= "red", midpoint = 0, limits= c(-10,10))+
+    theme_minimal()+
+    geom_text(aes(label = stars))+
+    theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+          axis.text.x = element_text(angle= 45, hjust= 1))+
+    coord_equal()+
+    labs(y= "", x="", fill= "TF activity")
+
+  unify_axis(p)
+
+})
+
+pdf("output/figures/main/Fig3/TF_acts_hfpef.pdf",
+    width= 4,
+    height= 6)
+pls[[1]]
+dev.off()
+
+
+tfs= dec.res%>% filter(condition== "HFpEF",
+                       statistic== "mlm",
+                       p_value <0.05)%>%
+  arrange((score))%>%
+  pull(source)
+
+p.df= dec.res %>%
+  filter(source %in% tfs)%>%
+  mutate(source= factor(source, levels = tfs),
+         condition=factor(condition, levels= c("HFpEF", "AngII", "MI_early", "MI_late")))
+range(p.df$score)
+p.df%>% arrange(desc(score))
+
+p=p.df %>%
+  filter(statistic== "mlm")%>%
+  ggplot(., aes(x= condition, y= source, fill = score,label =stars))+
+  geom_tile(color ="darkgrey")+
+  scale_fill_gradient2(low= "blue", mid= "white", high= "red", midpoint = 0)+
+  theme_minimal()+
+  geom_text(aes(label = stars))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+        axis.text.x = element_text(angle= 45, hjust= 1))+
+  coord_equal()+
+  labs(y= "", x="", fill= "TF activity")
+
+unify_axis(p)
+
+pdf(file = "output/figures/main/Fig3/TF_acts_hfpef2.pdf",
+    width= 5,
+    height= 7)
+unify_axis(p)
+dev.off()
+
+
+tfdec.res %>% group_by(condition, source) %>% filter(any(p_value<0.05))%>% pull(source)
+
+df= map(names(logFCs), function(gex1){
+
+  gex= as.matrix(logFCs[[gex1]][,1])
+  rownames(gex)= rownames(logFCs[[gex1]])
+
+  x= decouple(mat = gex,
+              network = regulons,
+              statistics = "mlm")
+
+  x %>% filter(statistic =="mlm") %>%
+    arrange(desc(score))
+
+  })
+
+
+df$HFpEF%>% filter(p_value <0.05)%>%pull(source)
+
+
+run_dorothea= function(gex.profile, regulons){
+
+  dec.res = decouple(gex.profile,
+                     network = regulons,
+                     statistics ="wmean",
+                     .source ="tf",
+                     .target = "target",
+                    consensus_score = F
+                    )
+
+
+  p1= dec.res  %>% filter(statistic== "corr_wmean")%>% ggplot( aes(x= condition, y= source, fill = score))+
+    geom_tile()+
+    scale_fill_gradient2(low= "blue", mid= "white", high= "red")
+
+  print(p1)
+
+  dec.res.matrix= dec.res %>%
+    filter(statistic== "corr_wmean") %>%
+    dplyr::select(score, source, condition) %>%
+    pivot_wider(names_from = source, values_from = score)
+
+  df= column_to_rownames(dec.res.matrix,"condition")
+  df= scale(df)
+  df= t(df)
+  p2= Heatmap(df)
+
+####  this part uses the raw corrected means to calculate fold changes between both groups and selects TF based on an absolute log2 FC > 1
+  ## however we comparing the scale of the different samples here.
+tf_fc2= t(column_to_rownames(dec.res.matrix, "condition")) %>% as.data.frame %>% rownames_to_column("tf") %>% as_tibble %>%
+    mutate(sum1= (hf1+hf2),
+           sum2= (ct1+ct2),
+           fc= sum1/sum2,
+           logfc = log2(fc)) %>%
+    arrange(desc(logfc))
+
+  df_match= as_tibble((df)) %>%
+    mutate(tf= rownames(df))   %>%
+    filter(sign(hf1)==sign(hf2),
+           sign(ct1)== sign(ct2))
+
+  df_match= column_to_rownames(df_match, "tf")
+
+  p3= Heatmap(df_match)
+
+  return(list("P"= list(p1, p2,p3),
+              "tf"= rownames(df_match),
+              "tf_log2fc"= tf_fc2,
+              "df_scaled"= df,
+              "df"= dec.res
+              )
+         )
+
+  }
 
 # run dorothea on single cell level for those that are interesting from the pseudobulk --------
 

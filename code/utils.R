@@ -15,9 +15,10 @@
 library(RColorBrewer)
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+col_vector =c( "#7FC97F", "#BEAED4", "#FDC086", "#E31A1C", "#386CB0", "#F0027F" ,"#BF5B17","#666666")
 hfpef_cols= c("#EF946C", "#785474")
 up_dn_cols= c("#0353A4", "#C41E3D")
-
+study_cols= c("#505168", "#FF5E5B","#B3C0A4","#D0858E")
 # Translation of mouse and human genes --------------------------------------------------------
 
 # Basic function to convert mouse to human gene names
@@ -346,6 +347,8 @@ GSE_analysis = function(geneList,Annotation_DB){
   return(ResultsDF)
 
 }
+
+
 
 # function to plot ORA results:
 plot_ORA= function(Ora_res, top.marker , flip =T){

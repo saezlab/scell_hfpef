@@ -152,11 +152,11 @@ dev.off()
 
 # plot heatmap of proportion change between studies -------------------------------------------
 
-p.val.df=readRDS( "output/fib_integration/p.vals.proportional.rds")
+p.val.df=readRDS( "output/fib_integration/p.vals.proportional2.rds")
 int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
 meta_seu= int.fibs@meta.data
 rm(int.fibs)
-
+meta_seu = readRDS("output/seu.objs/study_integrations/meta_with_time_and_doubleCT.rds")
 ## prop fc calc
 
 df= map(unique(meta_seu$study), function(x){
@@ -172,7 +172,8 @@ x$groupwise %>%pivot_wider(names_from=group , values_from= mean.percent, -median
   mutate(fc = hf-ct)
 
 })
-names(df.fc)= c("AngII", "HFpEF", "MI")
+
+names(df.fc)= c("AngII", "HFpEF",  "MI_early", "MI_late" )
 
 df.fc= map(names(df.fc), function(x){
   df.fc[[x]]%>% mutate(study= x)
@@ -186,19 +187,20 @@ p.val.df = map(names(p.val.df), function(x){
 p.val.df= p.val.df%>%
   mutate(study= ifelse(study== "circ", "AngII",
                        ifelse(study== "forte", "MI",
-                              ifelse(study== "hfpef", "HFpEF", ""))),
+                              ifelse(study== "hfpef", "HFpEF", study))),
          sig= ifelse(p.val<0.01, "**",
                      ifelse(p.val<0.1, "*","")))
 
 p.fc.proportion= df.fc %>%
   left_join(p.val.df, by= c("study", "opt_clust_integrated"))%>%
-mutate(study= factor(study, levels=c("HFpEF", "MI", "AngII")))%>%
+mutate(study= factor(study, levels=c("HFpEF", "MI_early", "MI_late", "AngII")))%>%
   ggplot(., aes(x= study, y= opt_clust_integrated, fill= fc))+
   geom_tile()+
   #geom_text(mapping=aes(label= round(p.val,2))  )+
   geom_text(mapping=aes(label= sig))+
   scale_fill_gradient2(low= "blue", mid= "white",
                       high= "red", midpoint = 0)+
+  theme_minimal()+
   theme(axis.text = element_text(color= "black"),
         axis.text.x=element_text(angle= 40, hjust= 1),
         panel.border = element_rect(colour = "black", fill=NA, size=1))+
@@ -209,7 +211,7 @@ p.fc.proportion
 
 
 pdf("output/figures/main/Fig3/proportion_change_fc.pdf",
-    width =4,
+    width =4.6,
     height= 3)
 p.fc.proportion
 dev.off()

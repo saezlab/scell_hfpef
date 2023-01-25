@@ -70,7 +70,7 @@ add_path_activities <- function(visium_slide,
 
 
     progeny_scores = progeny::progeny(expr = as.matrix(visium_slide[["RNA"]]@data), scale=TRUE,
-                                      organism="Mouse", top=top, perm=1, verbose = verbose)
+                                      organism="Mouse", top=top, perm=100,z_scores= T,  verbose = verbose)
 
     visium_slide[['progeny']] = CreateAssayObject(counts = t(progeny_scores))
     # model <- progeny::getModel(organism = "Mouse", top = top)

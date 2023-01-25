@@ -16,6 +16,8 @@ library(tidyverse)
 library(decoupleR)
 library(progeny)
 library(ComplexHeatmap)
+library(circlize)
+library(stringr)
 
 seu.objs= readRDS("output/seu.objs/cell.state.obj.list.rds")
 
@@ -37,12 +39,13 @@ cytosig_net= load_cytosig("data/prior_knowledge/cytosig_signature_centroid.csv",
 ggplot(cytosig_net, aes(x= cytokine, y= weight))+
   geom_boxplot()
 #capitalize network for quick check in mouse :
-library(stringr)
+
 cytosig_net$target = str_to_title(cytosig_net$target)
 cytosig_net %>% filter(cytokine== "IL3") %>% print(n=100)
 
 # run on cell type/states----------------------------------------------------------------------------
 seu= seu.objs$fibroblasts
+
 wrap_funcs= function(seu, name, grouping2= "cellstate"){
 
   group_wise= wrap_cytosig_progeny_mlm(seu, "group")
@@ -137,4 +140,61 @@ print(p.state[[2]])
 print(p.state.group.wise[[2]])
 
 dev.off()
+
+
+
+# integrated_fib ------------------------------------------------------------------------------
+
+seu_int= readRDS("output/seu.objs/study_integrations/harmony_fib_filt_2.rds")
+unique(seu_int$opt_clust_integrated)
+Seurat::DimPlot(seu_int)
+
+whole.cell=  wrap_cytosig_progeny_mlm(seu_int, "opt_clust_integrated")
+p.state= plot_cytosig_progeny(whole.cell)
+
+
+
+#func_res$progeny= func_res$progeny[c("Col15a1+", "Igfbp3+", "Pi16+", "Cxcl1+", "Cilp+", "Wif1+"),]
+col_fun = colorRamp2(c(min(whole.cell$progeny ,na.rm = T), 0, max(whole.cell$progeny, na.rm = T)), c("blue", "white", "red"))
+Heatmap_progeny= Heatmap(t(whole.cell$progeny),
+                        col = col_fun,
+                        cluster_columns = F,
+                        name = "PROGENy\nscore\n",
+                        column_names_rot = 40,
+                        border = T,
+                        rect_gp = gpar(col = "darkgrey", lty = 1, size= 0.1),
+                        row_names_gp = gpar(fontsize = 10),
+                        column_names_gp = gpar(fontsize = 10),
+                        row_names_side = "left",
+                        show_row_dend = F)
+Heatmap_progeny
+
+pdf(paste0("output/figures/main/Fig2/progeny_celltypes.pdf"),
+    width= 3.7,
+    height=3)
+print(Heatmap_progeny)
+dev.off()
+
+Heatmap_cytosig= whole.cell$cytosig%>%
+  mutate(star= ifelse(adj_pvalue < 0.01,
+                      "***",
+                      ifelse(adj_pvalue< 0.05,
+                             "** ",
+                             ifelse(adj_pvalue < 0.1,
+                                    "* ",
+                                    " ")
+                      )
+  )
+  ) %>%
+  filter(cytokine != "IL3") %>%
+  ggplot(., aes(x= celltype, y= cytokine, fill = NES, label= star) )+
+  geom_tile()+
+  geom_text(aes(label= star))+
+  scale_fill_gradient2(low= "blue",mid= "white", high= "red")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(size= 12, angle = 40, hjust= 1))
+Heatmap_cytosig
+
+
+
 

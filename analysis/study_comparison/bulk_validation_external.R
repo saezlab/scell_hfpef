@@ -129,6 +129,7 @@ net2= enframe(marker,  name = "source", value = "target") %>% unnest(target) %>%
   mutate(mor = 1,
          likelihood= 1, )
 
+net3= rbind(net, net2)
 ## prepare reheat:
 re.= as.matrix(reheat)
 
@@ -139,7 +140,7 @@ re.= as.matrix(reheat)
 #1. signatures
 #map different reheat cutoffs to perform ora with state marker
 p.= map(c(100,200, 500), function(x){
-  res= run_ora(re., net,n_up = x, n_bottom = 0)
+  res= run_ora(re., net3,n_up = x, n_bottom = 0)
   res %>% mutate(n.reheat= x)
 })%>% do.call(rbind, .)
 
@@ -196,7 +197,7 @@ ggplot(., aes(x= source, y= statistic, fill = score))+
 p.3= map(c(0.05, 0.01, 0.001), function(x){
   n.genes= length(dea%>% filter(adj.P.Val<x, t>0)%>% pull(MGI.symbol)%>% unique())
   print(n.genes)
-  res= run_ora(mat, net,n_up = n.genes, n_bottom = 0)
+  res= run_ora(mat, net3,n_up = n.genes, n_bottom = 0)
   #res=  run_ora(re., net,n_up = x, n_bottom = 0)
   res %>% mutate(alpha= x)
 })%>% do.call(rbind, .)
@@ -250,9 +251,10 @@ plot.df= rbind(p.%>% filter(n.reheat==500)%>% select(-n.reheat)%>% mutate(Human.
                          sig= ifelse(p_value<0.001, "***", sig))
 
 max.p= max(-log10(plot.df$q_value))
-p_d= plot.df %>% filter(source %in% c("MI", "HFpEF", "AngII"))%>%
+p_d= plot.df %>% filter(source %in% c("MI_early", "MI_late", "HFpEF", "AngII"))%>%
+  mutate(source= factor(source,levels= c(c("HFpEF","AngII","MI_early", "MI_late" ))))%>%
   ggplot(., aes(x= source, y= Human.ref, fill= score))+
-  geom_tile()+
+  geom_tile(color= "darkgrey")+
   scale_fill_gradientn(colors= c("white", "red"),
                        breaks=c(0,2,4,6,8),#labels=c("Minimum",0.5,"Maximum"),
                        limits=c(0,10))+
@@ -261,12 +263,14 @@ p_d= plot.df %>% filter(source %in% c("MI", "HFpEF", "AngII"))%>%
   theme(axis.text= element_text(color= "black"),
         panel.border = element_rect(colour = "black",fill=NA, size=1),
         axis.text.x=element_text(angle= 40, hjust= 1))+
-  labs(x= "murine disease signature", y= "Human bulk transcriptome", fill = "-log10(q-value)")
-p_d
+  labs(x= "Murine disease signature", y= "Human bulk transcriptome", fill = "-log10(q-value)")
 
-p_s= plot.df %>% filter(!source %in% c("MI", "HFpEF", "AngII"))%>%
+
+p_d= unify_axis(p_d)
+
+p_s= plot.df %>% filter(!source %in% c("MI", "MI_early", "MI_late", "HFpEF", "AngII"))%>%
   ggplot(., aes(x= source, y= Human.ref, fill= score))+
-  geom_tile()+
+  geom_tile(color = "darkgrey")+
   scale_fill_gradientn(colors= c("white", "red"),
                                               breaks=c(0,2,4,6,8,10),#labels=c("Minimum",0.5,"Maximum"),
                                         limits=c(0,10))+
@@ -276,8 +280,9 @@ p_s= plot.df %>% filter(!source %in% c("MI", "HFpEF", "AngII"))%>%
   theme(axis.text= element_text(color= "black"),
         panel.border = element_rect(colour = "black",fill=NA, size=1),
         axis.text.x=element_text(angle= 40, hjust= 1))+
-  labs(x= "murine IFS marker", y= "", fill = "-log10(q-value)")
-p_s
+  labs(x= "Murine IFS marker", y= "", fill = "-log10(q-value)")
+p_s= unify_axis(p_s)
+
 p.comb= cowplot::plot_grid(p_d+
                      theme( legend.position = "none",
                            plot.margin = unit(c(1, 0, 0, 0), "cm"),
@@ -537,3 +542,7 @@ t.vec= bulk$DEA%>% select(t)%>% as.matrix()
 rownames(t.vec)= bulk$DEA$gene
 t.progeny = run_progeny(t.vec, .label = "t.s", organism = "Human")
 hmap= Heatmap(t.progeny, cluster_columns = T, name = "Progeny_score")
+
+naba= readRDS("data/prior_knowledge/NABA_mouse.rds")
+
+naba$Basement_membranes

@@ -176,8 +176,15 @@ hfpef_f= wrap_deg_subsampled_with_fisher(seu = hfpef,number_of_replicates =  5)
 forte_f= wrap_deg_subsampled_with_fisher(forte, 5)
 circ_f= wrap_deg_subsampled_with_fisher(circ, 5)
 
+#for the MI study we are adding the subset of early and late remodeling
+
+forte_early= wrap_deg_subsampled_with_fisher(subset(forte,time != 14), 5)
+forte_late= wrap_deg_subsampled_with_fisher(subset(forte,time %in% c(0,14) | group == "ct" ), 5)
+
+
 #combine and make up and downregulated lists:
 obj = list(hfpef_f, forte_f, circ_f)
+#obj= list(forte_early,forte_late)
 l.sets= map(obj, function(x) (x%>%filter(median.log2FC>0)%>% arrange(fisher.p, desc(abs(median.log2FC))))%>% #slice(1:100)
               pull(gene))
 l.sets.dn= map(obj, function(x) (x%>%filter(median.log2FC<0)%>% arrange(fisher.p, desc(abs(median.log2FC))))%>% #slice(1:100)
@@ -220,11 +227,24 @@ gene_signatures= list("unique"= list("HFpEF"= HFpEF_unique_sig,
 
 saveRDS(gene_signatures, "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
+
 saveRDS(hfpef_f, "output/fib_integration/marker_list/DEG_hfpef.rds")
-source("analysis/utils.R") #load for col_vector
-venn.up = ggvenn(list("MI"= gene_signatures$total$MI,
+
+
+##expand with early and late for MI
+obj= list(forte_early,forte_late)
+l.sets= map(obj, function(x) (x%>%filter(median.log2FC>0)%>% arrange(fisher.p, desc(abs(median.log2FC))))%>% #slice(1:100)
+              pull(gene))
+gene_signatures$total$MI_late= l.sets[[2]]
+gene_signatures$total$MI_early= l.sets[[1]]
+
+saveRDS(gene_signatures, "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
+
+source("code/utils.R") #load for col_vector
+venn.up = ggvenn(list("MI_late"= gene_signatures$total$MI_late,
+                      "MI_early"= gene_signatures$total$MI_early,
                    "HFpEF"= gene_signatures$total$HFpEF,
-                   "AngII" = gene_signatures$total$AngII), fill_color = c(col_vector[2], col_vector[1], col_vector[3]), show_percentage = F,fill_alpha = 0.6, text_size = 4, set_name_size = 5)
+                   "AngII" = gene_signatures$total$AngII), fill_color = c(col_vector[2], col_vector[1], col_vector[3],col_vector[4]), show_percentage = F,fill_alpha = 0.6, text_size = 4, set_name_size = 5)
 venn.up
 
 pdf("output/figures/main/Fig3/deg.venns.pdf",
@@ -234,6 +254,50 @@ venn.up
 dev.off()
 
 
+
+# add jaccard ---------------------------------------------------------------------------------
+gene_signatures$total= gene_signatures$total[names(gene_signatures$total)!="MI" ]
+df= sapply(gene_signatures$total, function(x){
+  sapply(gene_signatures$total, function(y){
+        length(intersect(x,y))/length(union(x,y))
+  })
+})
+
+p1= df %>% as.data.frame()%>% rownames_to_column("comparison")%>%
+  pivot_longer(-comparison)%>%
+  mutate(value = ifelse(name== comparison, NA, value),
+       comparison = factor(comparison, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
+       name= factor(name, levels= c("HFpEF", "AngII", "MI_early", "MI_late"))) %>%
+  ggplot(., aes(x= name, y = comparison, fill = value))+
+  geom_tile(color= "black")+
+  scale_fill_gradient(low= "white", high= "darkred")+
+  theme_minimal()+
+  #geom_text(aes(label= sig))+
+  theme(axis.text= element_text(colour = "black"),
+        axis.text.x = element_text(angle= 45, hjust= 1),
+        panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  coord_equal()+
+  labs(fill ="Jaccard \n Index",x="",  y= "")
+
+pdf("output/figures/main/Fig3/jaccard_sigs2.pdf",
+    height= 3,
+    width= 3)
+unify_axis(p1)
+dev.off()
+
+
+diag(df)= NA
+df[upper.tri(df)]= NA
+
+hmap= ComplexHeatmap::Heatmap(t(df),
+                        cluster_rows = F, cluster_columns = F, name = "Jaccard Index",
+                        rect_gp = gpar(col = "black", lwd = 1.5))
+
+pdf("output/figures/main/Fig3/jaccard_sigs.pdf",
+    height= 3,
+    width= 3)
+hmap
+dev.off()
 
 # Compare cell signatures and plot ------------------------------------------------------------
 
@@ -278,17 +342,24 @@ dev.off()
 objs= list("hfpef"= hfpef,
            "forte"= forte,
            "circ"= circ)
+
 df= map(objs, function(x){
   Idents(x)= "group"
   x_f= FoldChange(x, ident.1= "hf", ident.2= "ct")
 })
 
+
+
 saveRDS(df, file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
-
 df=readRDS( file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
-
-
-
+Idents(forte)= "group"
+MI_early= FoldChange(subset(forte,time != 14), ident.1= "hf", ident.2= "ct")
+MI_late= FoldChange(subset(forte,time %in% c(0,14)), ident.1= "hf", ident.2= "ct")
+df$forte_late= MI_late
+df$forte_early= MI_early
+names(df)=c("HFpEF", "MI", "AngII", "MI_late", "MI_early")
+df= df[names(df)!= "MI"]
+saveRDS(df, file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
 #
 # mean_exp= map(objs, function(x){
 #   Idents(x)= "group"

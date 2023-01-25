@@ -10,16 +10,16 @@
 ##
 ## Assess overlap between cell state marker and DEGs
 
-
-
 library(Seurat)
 library(tidyverse)
 library(ComplexHeatmap)
 library(ggvenn)
+library(circlize)
 
 gene_signatures= readRDS( "output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
 
 logFCs=readRDS(file = "output/fib_integration/marker_list/DEG_per_study_LOGFC.rds")
+
 names(logFCs)=c("HFpEF", "MI", "AngII")
 
 int_state_marker= readRDS("output/fib_integration/marker_list/integrated_marker.rds")
@@ -58,15 +58,15 @@ calculate_per_cluster= function(cell_state_marker,gene_signatures, top_marks = 1
   return(df*100)
 }
 
+gene_signatures$total= gene_signatures$total[names(gene_signatures$total) != "MI"]
 df= calculate_per_cluster(cell_state_marker = int_state_marker,
                       gene_signatures = gene_signatures$total,
                       top_marks = 100)
 
 df2= calculate_per_cluster(cell_state_marker = loc_state_marker,
                           gene_signatures = gene_signatures$total,
-                          top_marks = 200)
+                          top_marks = 100)
 
-library(circlize)
 col_fun = colorRamp2(c( 0, max(df)), c( "white", "red"))
 
 p.int= Heatmap(df, col = col_fun, name = "% overlap",

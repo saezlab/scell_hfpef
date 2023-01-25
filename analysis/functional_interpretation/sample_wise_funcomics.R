@@ -106,7 +106,7 @@ run_TMM_= function(pb, celltype){
 
   #detect and remove low expressed gene
   keep <- filterByExpr(dge,group = group )
-  ?filterByExpr
+
   dge <- dge[keep,,keep.lib.sizes=FALSE]
 
   dge <- calcNormFactors(dge)

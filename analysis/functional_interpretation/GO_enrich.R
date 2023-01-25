@@ -72,6 +72,18 @@ filter_terms= function(df, terms= c("matrix","inflam","fibro", "immune", "heat")
   }
 # cell state marker ---------------------------------------------------------------------------
 
+##int state fib marker
+int.fib.marker= readRDS( "output/fib_integration/marker_list/integrated_marker.rds")
+
+cut.off.state= 100
+
+int.fib.marker= int.fib.marker%>% group_by(cluster) %>%
+  filter(p_val_adj <0.05,
+         avg_log2FC>0)%>%
+  slice(1:cut.off.state)
+
+int.genesets= split(int.fib.marker$gene, int.fib.marker$cluster)
+
 ## prepare gene sets:
 
 cellstate_marker =readRDS("output/cell_state_marker.rds")
@@ -104,8 +116,17 @@ fibs.sets= split(x = fib.marker$gene, f= fib.marker$cluster)
 macs.r= enrich.wrap(macs.sets)
 fibs.r= enrich.wrap(fibs.sets)
 
-#save as xls
+int.r = enrich.wrap(int.genesets)
 
+df=int.r$bp%>%
+  filter(Adjusted.P.value<0.1)# %>%
+
+split(df, f= df$cluster)%>%
+  WriteXLS(., "output/GO_fib_cellstate_int.xls")
+
+saveRDS(int.r,
+        "output/GO_cellstates_int.rds")
+#save as xls
 df=fibs.r$bp%>%
   filter(Adjusted.P.value<0.05)# %>%
 distinct(cluster, Term)
@@ -123,6 +144,8 @@ split(df, f= df$cluster)%>%
 
 saveRDS(list("fibs"= fibs.r, "macs"= macs.r),
           "output/funcomics_res/GO_cellstates.rds")
+
+
 
 # DEGs of fibroblasts form differnt studies ----------------------------------------------------------------------------------------
 signatures=readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
@@ -243,7 +266,7 @@ pdf("output/figures/integration_studies/deg.hmaps/GO_common.bp",
 
 table(df$Term, df$cluster)
 
-bio.process= filter_terms(fibs.r$bp, terms)
+bio.process= filter_terms(int.r$bp, terms)
 
 bio.process%>%
   #filter(Adjusted.P.value<0.01) %>%
@@ -298,7 +321,8 @@ plot_sankey= function(df, p.val.alpha){
 }
 
 # enrich the fibrosis signatures with GO terms---------------------------------------------------------------------------------------------
-signature= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
+
+signature= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled2.rds")
 
 enrich.r= lapply(signature$total, function(x){
   y= enrichr(genes = x,

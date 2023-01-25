@@ -23,8 +23,8 @@ meta_seu= seu[[]]
 mean(seu$nCount_RNA)
     # function ------------------------------------------------------------------------------------
 
-get_null= function(t= 500, x, clust_col= "cellstate", group_col= "orig.ident"){
-  set.seed(4)
+get_null= function(t= 500, x, clust_col= "cellstate", group_col= "orig.ident", seed = 4){
+  set.seed(seed)
 
   res= lapply(c(1:t), function(i){
     colname2= paste0("rep",i)
@@ -195,7 +195,8 @@ wrap_cell_state= function(meta_seu, cell,  celltype_col= "celltype" , t= 1000){
 
   nulls= get_null(t= t,
                   x=  meta_seu2[c("orig.ident", "cellstate")],
-                  clust.col = "cellstate")
+                  clust.col = "cellstate",
+                  seed= 4)
   print(nulls)
   ## get real observed proportions
   real_prop= calc_mean_proportions_per_group(meta_seu2,
@@ -246,11 +247,33 @@ dev.off()
 
 
 # integrated CELL STATES (by study) -----------------------------------------------------------
+set.seed(5)
 
-int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
-meta_seu= int.fibs@meta.data
-rm(int.fibs)
+# int.fibs= readRDS("output/seu.objs/study_integrations/harmony_fib_filt.rds")
+# meta_seu= int.fibs@meta.data
+#rm(int.fibs)
+meta_seu= readRDS("output/seu.objs/study_integrations/meta_with_time.rds")
 
+# duplicate the control day 0 mice cells for this analyiss and
+# label them as MI_late and MI_early to calculate proportions
+ct_sample = meta_seu %>%
+  filter(study== "forte" & group== "ct")%>%
+  mutate(study= "MI_late")
+
+meta_seu =  meta_seu %>%
+  mutate(time= ifelse(is.na(time), 7, time))%>%
+  mutate(study= ifelse(time == 14 & study=="forte", "MI_late", study),
+         study= ifelse(study == "forte" & time != 14,
+                                               "MI_early",
+                                               study))
+meta_adapt = rbind(meta_seu, ct_sample)
+
+table(meta_adapt$group, meta_adapt$study)
+table(meta_seu$study, )
+unique(meta_adapt$study)
+unique(meta_adapt$time)
+meta_adapt %>%
+  saveRDS(., "output/seu.objs/study_integrations/meta_with_time_and_doubleCT.rds")
 
 wrap_cell_state_int= function(meta_seu,
                               filter_val= "forte",
@@ -265,12 +288,13 @@ wrap_cell_state_int= function(meta_seu,
 
   nulls= get_null(t= t,
                   x=  meta_seu2[c(group_col, clust_col)],
-                  clust_col = clust_col,group_col = group_col)
+                  clust_col = clust_col,group_col = group_col,
+                  seed= 5)
   test_normality(nulls)
 
   ## get real observed proportions
   real_prop= calc_mean_proportions_per_group(meta_seu2,
-                                             clust.col,
+                                            clust_col,
                                              group_col)
 
   vals.contrast= real_prop$groupwise$group%>% unique()
@@ -293,13 +317,14 @@ wrap_cell_state_int= function(meta_seu,
     labs(x= "")+
     theme(axis.text.x = element_text(angle=00, hjust = 1, size= 8),
           axis.text.y = element_text(angle=00, hjust = 1, size= 8))
-  return(( ps))
+
+  return(ps)
 
 }
 
 
-res= map(unique(meta_seu$study), function(x){
-  wrap_cell_state_int(meta_seu,
+res= map(unique(meta_adapt$study), function(x){
+  wrap_cell_state_int(meta_adapt,
                       filter_val= x,
                       filer_col= "study" ,
                       group_col= "group",
@@ -309,13 +334,13 @@ res= map(unique(meta_seu$study), function(x){
 })
 
 
-names(res)= unique(meta_seu$study)
+names(res)= unique(meta_adapt$study)
 
 p.val.df= map(res, function(x){
-  names(x)= sort(unique(meta_seu$opt_clust_integrated))
+  names(x)= sort(unique(meta_adapt$opt_clust_integrated))
   enframe(x, name= "int_cellstate", value= "p.val")
   })
 
 
-saveRDS(p.val.df, "output/fib_integration/p.vals.proportional.rds")
-p.val.df=readRDS( "output/fib_integration/p.vals.proportional.rds")
+saveRDS(p.val.df, "output/fib_integration/p.vals.proportional2.rds")
+  p.val.df=readRDS( "output/fib_integration/p.vals.proportional2.rds")

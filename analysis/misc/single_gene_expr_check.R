@@ -140,7 +140,7 @@ dF= map(unique(meta$study), function(x){
 pls= map(c("ct", "hf"), function(x){
 
     dF %>% filter(group ==x) %>%
-    ggplot(., aes(x= study, y= opt_clust_integrated, fill = n))+
+    ggplot(., aes(x= study, y= opt_clust_integrated, fill = n)+)
     geom_tile()+
     scale_fill_gradient(low= "grey", high = "white")+
     geom_text(aes(label =n))+
@@ -148,4 +148,4 @@ pls= map(c("ct", "hf"), function(x){
 
 })
 
-cowplot::plot_grid(pls, ncol = 2)
+cowplot::plot_grid(plotlist= pls, ncol = 2)
