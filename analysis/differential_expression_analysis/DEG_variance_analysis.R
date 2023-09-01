@@ -338,6 +338,13 @@ ratios= map(x, function(y){
   y
 })
 
+### plot eta state for hfpef:
+vec= ratios$HFpEF[fib$total$HFpEF,1]
+pdf(file = "output/figures/main/Fig4/eta_state_hfpef.pdf",
+    width= 2.3, height= 11)
+Heatmap( vec, name= "eta² state", color= "black")
+dev.off()
+
 
 y= map(names(ratios), function(x){
   as.data.frame(ratios[[x]])%>% rownames_to_column("gene")%>%
@@ -461,28 +468,36 @@ dev.off()
 #check collagen expr:
 p= sapply(ratios, function(x){
   #x[c("Col1a1", "Col1a2"),4]
-  x[c("Loxl1", "Loxl2"),4]
+  x[fib$overlap$all,4]
+  #x[c("Loxl1", "Loxl2"),4]
   #x[gset,4]
 })
 
 p.collagens= t(p)%>%as.data.frame()%>%
   rownames_to_column(.,"disease_model")%>%
   pivot_longer(names_to="gene", values_to = "sg.ratio", -disease_model)%>%
-  mutate(disease_model= factor(disease_model, levels=c("HFpEF", "AngII", "MI_e", "MI_l")))%>%
-  ggplot(aes(color= gene, y= sg.ratio, x= disease_model))+
-    geom_point(size=4)+
+  mutate(disease_model= factor(disease_model, levels=c("HFpEF", "AngII", "MI_early", "MI_late")))%>%
+  ggplot(aes(color= gene, y= sg.ratio, x= disease_model, group=gene))+
   scale_y_log10()+
-  scale_color_manual(values = (col_vector))+
-  geom_hline(yintercept = 1)+
+  #geom_boxplot(alpha= 0.2, color= "black")+
+  #scale_color_manual(values = (col_vector))+
+  geom_hline(yintercept = 1, color= "black")+
+  geom_point(size=3, alpha= 0.9)+
+  geom_line(alpha= 0.5)+
   theme_minimal()+
-  labs(x= "", y= "eta² state / eta² group")
+  labs(x= "", y= "eta² state / eta² group")+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+        axis.text.x = element_text(angle= 40, hjust= 1))
+p.collagens
+
+
 pdf("output/figures/main/Fig4/collagen_compare_sg.pdf",
     width= 4,
     height= 4)
 unify_axis(p.collagens)
 dev.off()
 
-comp.top = names(sort(ratios$HFpEF[fib$total$HFpEF, 1], decreasing = T)[1:10])
+    comp.top = names(sort(ratios$HFpEF[fib$total$HFpEF, 1], decreasing = T)[1:10])
 exp.top = names(sort(ratios$HFpEF[fib$total$HFpEF, 1], decreasing = F)[1:10])
 p= sapply(ratios, function(x){
   x[c("Col1a1", "Col1a2", "Col4a1", "Col4a2"),4]
@@ -524,7 +539,8 @@ p= sapply(ratios, function(x){
   #x[naba$Collagens,4]
 })
 
-t(p)%>%as.data.frame()%>% rownames_to_column(.,"disease_model")%>%
+t(p)%>%
+  as.data.frame()%>% rownames_to_column(.,"disease_model")%>%
   pivot_longer(names_to="gene", values_to = "sg.ratio", -disease_model)%>%
   ggplot(aes(x= gene, y= log10(sg.ratio), color= disease_model))+
   geom_point()+

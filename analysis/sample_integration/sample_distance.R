@@ -15,6 +15,7 @@ library(Seurat)
 library(edgeR)
 library(ComplexHeatmap)
 library(lsa)
+library(edgeR)
 
 seu = readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
 seu@meta.data= seu@meta.data %>% mutate(celltype= ifelse(grepl("Fib", celltype2), "Fibroblasts", celltype2))
@@ -48,7 +49,7 @@ calc_distances= function(cells, pb.de, ratios= F ){
     seu2= FindVariableFeatures(seu2 )
 
     #reduce pseudobulk to hvg
-    pb.x.cpm= pb.x.cpm[rownames(pb.x.cpm) %in% rownames(HVFInfo(seu2))[1:3000], ]
+    pb.x.cpm= pb.x.cpm[rownames(pb.x.cpm) %in% rownames(HVFInfo(seu2))[1:1000], ]
 
     #eucledian:
     #cpm.dist= as.matrix(dist(t(pb.x.cpm)))
@@ -89,12 +90,15 @@ calc_distances= function(cells, pb.de, ratios= F ){
   return(res)
 }
 
-names(pb.de)
-names(pb.de) = str_replace_all(names(pb.de), "Cd", "CD")
-names(pb.de) = str_replace_all(names(pb.de), "T.cell", "T.cells")
+names(pb.de) %in% unique(seu$celltype)
+n.pb.de= names(pb.de)
+n.pb.de= str_replace_all(n.pb.de,replacement =  "CD", pattern = "Cd")
+n.pb.de = str_replace_all(n.pb.de, "T.cell", "T.cells")
+n.pb.de %in% unique(seu$celltype)
+names(pb.de)= n.pb.de
 cells=names(pb.de)
-cos.p= calc_distances(cells, pb.de)
 
+cos.p= calc_distances(cells, pb.de)
 
 cos.p2= calc_distances(cells, pb.de, ratios= T)
 #cos.p= calc_distances(cells, pb.de, ratios = T)
@@ -478,7 +482,9 @@ dev.off()
  library(Augur)
 
  augur = calculate_auc(seu, seu@meta.data,
-                       cell_type_col = "celltype", label_col = "group")
+                       cell_type_col = "celltype",
+                       label_col = "group",
+                       n_subsamples= 50,feature_perc = 0.8                       )
 
  p1= plot_lollipop(augur) +
    geom_point(aes(color = cell_type), size = 3) +

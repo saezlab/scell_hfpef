@@ -48,7 +48,7 @@ test.cols=test.cols[!test.cols %in% cols.r]
 
 cor.df= sapply(test.cols, function(x){
   print(x)
-  res= cor.test(df[[x]], df$anptl4, method = "spearman")
+  res= cor.test(df[[x]], df$anptl4, method = "pearson")
   c("p"= res$p.value, res$estimate)
 })%>% t()
 
@@ -76,9 +76,16 @@ cor.sig_hf %>% filter(grepl("E_e", feat))
 cor.sig_hf%>%
   filter(p<0.1)%>% arrange(p)%>% print(n=100)
 
-ggplot(df_hf, aes(x= anptl4, y= Strain_Baseline))+
+ggplot(df, aes(x= anptl4, y= LVEF_base))+
   geom_point()
-cor.test(df_hf$anptl4, df_hf$Strain_Baseline, method = "spearman")
+
+cor.test(df_hf$anptl4, df_hf$Strain_Baseline, method = "pearson")
+cor.test(df$anptl4, df$logntprobnp, method = "pearson")
+ggplot(df, aes(x= anptl4, y= tnt_12MFU))+
+  geom_point()
+
+ggplot(df, aes(x= anptl4, y= logntprobnp))+
+  geom_point()
 
 
 ## 2. Wilcox for categorical 2 level
@@ -181,7 +188,11 @@ auc(df2$NYHA_stage_base ,x)
 
 # Add plots -----------------------------------------------------------------------------------
 ## significant correlations in hf patients
-cor.feat= cor.sig_hf%>% filter(p<0.05)%>% pull(feat)
+cor.feat1= cor.sig_hf%>% filter(p<0.05, cor<0.95)%>% pull(feat)
+cor.feat2= cor.sig%>% filter(p<0.05, cor<0.95)%>% pull(feat)
+
+unique(c(cor.feat1, cor.feat2))
+
 pls= map(cor.feat[1:6], function(x){
 
   lm.fit= lm(paste0( "anptl4 ~", x), data= df_hf)
@@ -189,7 +200,7 @@ pls= map(cor.feat[1:6], function(x){
   p.= round(summary(lm.fit)$coefficient[2, 4],2)
 
   ggplot(df_hf, aes(y= anptl4, x = !!as.symbol(x))) +
-    geom_point() +
+    geom_point(alpha= 0.6) +
     stat_smooth(method = "lm", col = "red")+
     geom_text(label = paste0("R²=", r2 , "\n", "p-val=", p.), x = min(df_hf[[x]]) , y= 150, size= 3)
 
@@ -198,7 +209,9 @@ pls= map(cor.feat[1:6], function(x){
 names(pls)= cor.feat[1:6]
 cowplot::plot_grid(plotlist= pls)
 
-pls= map(c("Strain_Baseline", "TAPSE_Baseline", "sves_6mfu"), function(x){
+
+c("Strain_Baseline", "TAPSE_Baseline", "sves_6mfu")
+pls_hf= map(unique(c(cor.feat1, cor.feat2)), function(x){
   print(x)
   lm.fit= lm(paste0( "anptl4 ~", x), data= df_hf)
   r2= round(summary(lm.fit)$r.squared, 2)
@@ -208,13 +221,53 @@ pls= map(c("Strain_Baseline", "TAPSE_Baseline", "sves_6mfu"), function(x){
   ggplot(df_hf, aes(y= anptl4, x = !!as.symbol(x))) +
     geom_point() +
     stat_smooth(method = "lm", col = "red")+
-    geom_text(label = paste0("R²=", r2 , "\n", "p-val=", p.),
-              x = (min(df_hf[[x]], na.rm = T))+0.1* min(df_hf[[x]], na.rm = T) ,
-              y= 155, size= 3)
+    annotate(geom ="text", label =  paste0("R²=", r2 , "\n", "p-val=", p.),
+             x = min(df_hf[[x]], na.rm = T) + ( 0.1* max(df_hf[[x]], na.rm = T) ),
+             y= 155, size= 3)+
+    theme_minimal()+
+    theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+    labs(y= "ANGPTL4 pg/ml")%>%
+  unify_axis()
 
 
 })
 
+
+pls_all= map(unique(c(cor.feat1, cor.feat2)), function(x){
+  print(x)
+  lm.fit= lm(paste0( "anptl4 ~", x), data= df)
+  r2= round(summary(lm.fit)$r.squared, 2)
+  p.= round(summary(lm.fit)$coefficient[2, 4],2)
+  print(c(r2, p.))
+  print(min(df[[x]]))
+  ggplot(df, aes(y= anptl4, x = !!as.symbol(x))) +
+    geom_point(alpha= 0.6) +
+    stat_smooth(method = "lm", col = "red")+
+    annotate(geom ="text", label =  paste0("R²=", r2 , "\n", "p-val=", p.),
+              x =min(df[[x]], na.rm = T)+ ( 0.2* max(df[[x]], na.rm = T) ),
+              y= 155, size= 3, colour = "DARKRED")+
+    labs(y= "ANGTPL4 pg/ml")+
+    theme_minimal()+
+    theme(panel.border = element_rect(colour = "black", fill=NA, size=1))%>%
+            unify_axis()
+
+
+})
+
+pdf("output/figures/supp/angptl4_correlations_all.pdf",
+    width= 10,
+    height= 10)
+cowplot::plot_grid(plotlist = pls_all)
+dev.off()
+
+pdf("output/figures/supp/angptl4_correlations_hfpef.pdf",
+    width= 10,
+    height= 10)
+cowplot::plot_grid(plotlist= pls_hf)
+dev.off()
+
+
+pls_all
 x= "Strain_Baseline"
   print(x)
   lm.fit= lm(paste0( "anptl4 ~", x), data= df_hf)
@@ -224,7 +277,7 @@ x= "Strain_Baseline"
   print(min(df_hf[[x]]))
   p1 = ggplot(df_hf, aes(y= anptl4, x = !!as.symbol(x))) +
     geom_point() +
-    stat_smooth(method = "lm", col = "red")+
+    stat_smooth(method = "lm", col = "darkgrey")+
     geom_text(label = paste0("R²=", r2 , "\n", "p-val=", p.),
               x = (min(df_hf[[x]], na.rm = T))+0.1* min(df_hf[[x]], na.rm = T) ,
               y= 155, size= 3)
@@ -254,8 +307,9 @@ p3 = ggplot(df_hf, aes(y= anptl4, x = !!as.symbol(x))) +
   stat_smooth(method = "lm", col = "red")+
   geom_text(label = paste0("R²=", r2 , "\n", "p-val=", p.),
             x = 1000,
-            y= 50, size= 3)+
-  labs(y= "ANGTPL4 pg/ml")
+            y= 60, size= 4)+
+  labs(y= "ANGTPL4 pg/ml")+
+  theme_bw()
 
 p3
 p.c= cowplot::plot_grid(p1+labs(y= "ANGTPL4 pg/ml"),

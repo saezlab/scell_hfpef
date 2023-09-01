@@ -215,7 +215,7 @@ umap1= DimPlot(integrated_data,
     axis.ticks = element_blank(),
     panel.border = element_rect(colour = "black", fill=NA, size=1),
     plot.margin = unit(c(-1, -1, -1, -1), "cm"))
-  )
+
 
 umap1
 #cols= c("#EF946C", "#785474", "#AF1B3F","#77B6EA","#66B3BA","#ab87a6", "#66B3BA","#848FA5", "#58B09C", "#AF1B3F")
@@ -245,10 +245,13 @@ umap.disease
 umap.study= DimPlot(integrated_data,
                group.by= "study",
                #cols = sample(col_vector, 50 ,replace = F),
-               cols= c(col_vector[2], col_vector[3], col_vector[1]),
+               cols= c(  "#EE7674",
+                         "#494304",
+                         col_vector[5],
+                         col_vector[8]),
                label = F,
                label.size = 4,
-               pt.size = 0.01,
+               pt.size = 0.1,
                label.col= "black",
                order = rev(c("MI", "AngII", "HFpEF"))
 )+
@@ -267,6 +270,56 @@ umap.study= DimPlot(integrated_data,
   )
 umap.study
 #
+
+
+# plot umap for study sep
+#load time data separately since it is not stored in integrated object
+x= readRDS("output/seu.objs/study_integrations/meta_with_time.rds")
+x =  x %>%
+  mutate(time= ifelse(is.na(time), 7, time))%>%
+  mutate(study= ifelse((time == 14 & study=="forte") | (time== 7 & group == "ct"),
+                       "MI_late", study),
+         study= ifelse(study == "forte" & time != 14,
+                       "MI_early",
+                       study))%>%
+  mutate(study= ifelse(study=="circ", "AngII",
+                       ifelse(study=="hfpef","HFpEF", study)),
+         group = ifelse(group== "ct", "Control", "HF"))%>%
+  rename(study2= study)
+
+table(x$time, x$study2)
+meta= integrated_data@meta.data
+meta= meta %>% as.data.frame() %>% rownames_to_column("cellid") %>% left_join(x%>%
+                                                                          select(cellid, time, study2), by= "cellid")
+integrated_data= AddMetaData(integrated_data, meta$study2, "study2")
+
+
+umap.study2= DimPlot(integrated_data,
+                     group.by= "study2",
+                     #cols = sample(col_vector, 50 ,replace = F),
+                     cols= c("#F9F19A", "#FABF87", "#82C180",  "#BEAED4"),
+                     label = F,
+                     label.size = 4,
+                     pt.size = 0.1,
+                     label.col= "black",
+                     order = rev(c("MI_early", "MI_late", "AngII", "HFpEF"))
+)+
+  #NoLegend()+
+  ggtitle("")+
+  labs(x= "UMAP1",
+       y= "UMAP2")+
+  theme(axis.line = element_blank(),
+        axis.text = element_blank(),
+
+        legend.text=element_text(size=11),
+        axis.title= element_text(size= 9),
+        axis.ticks = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        plot.margin = unit(c(-1, -1, -1, -1), "cm")
+  )
+
+
+umap.study2
 # saveRDS(list(umap.disease, umap.study, umap1), "output/figures/main/Fig3/")
 p.c= cowplot::plot_grid(
                         umap.disease,#+coord_equal(),
@@ -284,7 +337,7 @@ p.c
 dev.off()
 
 
-  pdf("output/figures/main/fib_integrated_umaps.pdf",
+pdf("output/figures/main/fib_integrated_umaps.pdf",
     height= 6, width= 6)
 umap1+coord_equal()
 umap.disease+coord_equal()

@@ -15,7 +15,6 @@ library(biomaRt)
 library(magrittr)
 library(Seurat)
 library(ggrepel)
-library(magrittr)
 library(ComplexHeatmap)
 
 source("code/utils.R")
@@ -52,7 +51,7 @@ liana_res <- liana_wrap(seu,
 
 saveRDS(list(op_resource, liana_res), "output/figures/funcomics/liana_res_celltype.rds")
 
-op_= readRDS("output/figures/funcomics/liana_res_celltype.rds")
+op_= readRDS("~/R-projects/sc_hfpef/output/figures/funcomics/liana_res_celltype.rds")
 op_resource= op_[[1]]
 
 # liana ---------------------------------------------------------------------------------------
@@ -89,6 +88,7 @@ saveRDS(liana_res_hf, "output/liana_hf.rds")
 liana_res_ct= readRDS("output/liana_ct.rds")
 liana_res_hf= readRDS("output/liana_hf.rds")
 
+liana_res_hf$natmi
 ## Aggregate Liana Results:
 aggregate_l= function(liana_res){
   liana_res= liana_res[names(liana_res)!="cellchat"]

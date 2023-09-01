@@ -150,14 +150,24 @@ unique(seu_int$opt_clust_integrated)
 Seurat::DimPlot(seu_int)
 
 whole.cell=  wrap_cytosig_progeny_mlm(seu_int, "opt_clust_integrated")
+
 p.state= plot_cytosig_progeny(whole.cell)
 
 
 
 #func_res$progeny= func_res$progeny[c("Col15a1+", "Igfbp3+", "Pi16+", "Cxcl1+", "Cilp+", "Wif1+"),]
 col_fun = colorRamp2(c(min(whole.cell$progeny ,na.rm = T), 0, max(whole.cell$progeny, na.rm = T)), c("blue", "white", "red"))
+Heatmap(mat1, cell_fun = function(j, i, x, y, w, h, fill) {
+  if(t(whole.cell$progeny)[i, j] < 0.001) {
+    grid.text("***", x, y)
+  } else if(t(whole.cell$progeny)[i, j] < 0.01) {
+    grid.text("**", x, y)
+  }
+  ....
+})
 Heatmap_progeny= Heatmap(t(whole.cell$progeny),
                         col = col_fun,
+
                         cluster_columns = F,
                         name = "PROGENy\nscore\n",
                         column_names_rot = 40,
@@ -166,8 +176,15 @@ Heatmap_progeny= Heatmap(t(whole.cell$progeny),
                         row_names_gp = gpar(fontsize = 10),
                         column_names_gp = gpar(fontsize = 10),
                         row_names_side = "left",
-                        show_row_dend = F)
+                        show_row_dend = F,
+                        cell_fun = function(j, i, x, y, w, h, fill) {
+                          if(t(whole.cell$progeny)[i, j] > 2) {
+                            grid.text("*", x, y)
+                          }
+                        })
+
 Heatmap_progeny
+
 
 pdf(paste0("output/figures/main/Fig2/progeny_celltypes.pdf"),
     width= 3.7,

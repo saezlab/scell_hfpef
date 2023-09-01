@@ -86,20 +86,25 @@ do_PCA= function(target, df){
     as_tibble()%>%
     left_join(target)
 
-  p.pca = ggplot(plot.pca,aes(x= PC1, y= PC2, col= Group, shape= factor1))+
+  p.pca = ggplot(plot.pca,aes(x= PC1, y= PC2, col= Group))+
     geom_point(size= 3)+
     theme_minimal()+
     labs(x= paste0("PC1 (",as.character(round(PCA$sdev[1]^2/sum(PCA$sdev^2)*100)),"%)"),
          y= paste("PC2 (",as.character(round(PCA$sdev[2]^2/sum(PCA$sdev^2)*100)),"%)"))+
     ggtitle(paste0(""))+
-    geom_text_repel(aes(label= sample),show.legend = FALSE)
+    #geom_text_repel(aes(label= sample),show.legend = FALSE)+
+    theme(axis.text = element_text(size= 11, color= "black"),
+          panel.border = element_rect(colour = "black", fill=NA, size=1))
 
-  p.pca2 = ggplot(plot.pca,aes(x= PC3, y= PC4, col= Group, shape= factor1))+
+  p.pca2=  ggplot(plot.pca,aes(x= PC3, y= PC4, col= Group))+
     geom_point(size= 3)+
     theme_minimal()+
     labs(x= paste0("PC3 (",as.character(round(PCA$sdev[3]^2/sum(PCA$sdev^2)*100)),"%)"),
          y= paste("PC4 (",as.character(round(PCA$sdev[4]^2/sum(PCA$sdev^2)*100)),"%)"))+
-    ggtitle(paste0(""))+geom_text_repel(aes(label= sample),show.legend = FALSE)
+    ggtitle(paste0(""))+
+    #geom_text_repel(aes(label= sample),show.legend = FALSE)+
+      theme(axis.text = element_text(size= 11, color= "black"),
+            panel.border = element_rect(colour = "black", fill=NA, size=1))
   #p.pca2
 
   cowplot::plot_grid(p.pca, p.pca2)
@@ -107,8 +112,14 @@ do_PCA= function(target, df){
 }
 
 do_PCA(dge1$target, dge1$voom)
-do_PCA(dge0$target, dge0$voom)
 
+ps= do_PCA(dge0$target, dge0$voom)
+pdf("output/figures/supp/bulk_PCA.pdf",
+    width =8,
+    height= 3
+)
+ps
+dev.off()
 
 # DEA  ---------------------------------------------------------------------------------------------
 ## 5wks
