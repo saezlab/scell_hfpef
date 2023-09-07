@@ -1,4 +1,4 @@
-# Comparison of HFpEF specific fibrotic signatures
+# Comparison of HFpEF fibrotic signatures
 
 **Collaborators**:
 Laura Wienecke and Florian Leuschner. 
@@ -7,8 +7,6 @@ Laura Wienecke and Florian Leuschner.
 Inflammation, fibrosis and metabolic stress critically promote heart failure with preserved ejection fraction (HFpEF). Exposure to high-fat diet and nitric oxide synthase inhibitor N[w]-nitro-l-arginine methyl ester (L-NAME) recapitulate features of HFpEF in mice. To identify disease specific traits during adverse remodeling, we performed single-cell RNAseq (scRNAseq) of interstitial cells in murine HFpEF. Diastolic dysfunction and fibrosis were accompanied by an activation of cardiac fibroblast and macrophage subsets. Comparison with scRNAseq datasets of murine heart failure with reduced ejection fraction (HFrEF) identified a specific HFpEF fibroblast disease signature, characterized by e.g. overexpression of basement membrane genes. While myo- and matrifibroblast activation is known to be crucial for cardiac fibrosis in HFrEF, we found this cell-state switch to be less important in HFpEF. Disease specific fibroblast signatures were corroborated in human myocardial bulk transcriptomes and main markers confirmed at protein level in murine samples. Lipoproteinlipase Angiopoietin-like 4 was identified to indicate HFpEF mediated fibroblast activation and may serve as a potential biomarker for disease progression. Taken together, our results provide a characterization of the interstitial cellular landscape of murine HFpEF, including specific characteristics of fibroblast activation.
 
 **Methods**: Whole single cell RNA sequencing with 10x genomics and Illumina 
-
-**Design:** Overall: 2x Control mice vs 2x HfpEF mice, time points 7 weeks after treatment start.
 
 **Analysis Workflow**
 

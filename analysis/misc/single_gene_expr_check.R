@@ -88,6 +88,24 @@ cowplot::plot_grid(p_comb1,
                    p_comb2, ncol = 1, rel_heights = c(1,0.8))
 dev.off()
 
+###s1pr3 laura
+
+rm(seu_int)
+
+seu= readRDS("output/seu.objs/study_integrations/harmony_fib_filt_2.rds")
+
+p1=  FeaturePlot(seu, c("S1pr3"))
+p2= VlnPlot(seu,features = "S1pr3", group.by = c("group", "study"))
+unique(seu@meta.data$study)
+seu@meta.data= seu@meta.data%>% mutate(exp.group= paste0(study, group, sep= "_"))
+p2= VlnPlot(seu,features = "S1pr3", group.by = c("exp.group"))
+p3= VlnPlot(seu,features = "S1pr3", group.by = c("opt_clust_integrated"))
+p2
+
+library(cowplot)
+
+cowplot::plot_grid(p1,p2,p3, ncol = 2)
+
 
 # check regulons ------------------------------------------------------------------------------
 library(dorothea)
@@ -149,3 +167,27 @@ pls= map(c("ct", "hf"), function(x){
 })
 
 cowplot::plot_grid(plotlist= pls, ncol = 2)
+
+
+# angptl4 across cell types -------------------------------------------------------------------
+
+seu = readRDS("output/seu.objs/integrated_cellstate_nameupdated.rds")
+Idents(seu) = "celltype2"
+seu@meta.data= seu@meta.data%>%
+  mutate(celltype2= ifelse(celltype2== "Fibroblasts.2" | celltype2 == "Fibroblasts.1",
+                           "Fibroblasts",
+                           celltype2))
+DimPlot(seu, group.by = "celltype2")
+p1= VlnPlot(seu, features = "Angptl4", split.by = "group", pt.size = 0.0000, flip = T)
+p2= VlnPlot(seu, features = "Angptl4", split.by = "group", pt.size = 0.1, flip = T)
+p3= DotPlot(seu, features = "Angptl4", split.by = "group")
+
+pdf("output/figures/main/Fig5/Angptl4_expr.pdf",
+    width= 4.5,
+    height= 4)
+p1
+p2
+p3
+
+dev.off()
+p3

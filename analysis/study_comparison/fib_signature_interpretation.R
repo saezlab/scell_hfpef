@@ -285,7 +285,8 @@ gex= as.matrix(column_to_rownames(as.data.frame(gex), "gene"))
 M.Progeny = run_progeny(gex, .label = colnames(gex))
 
 hmap= Heatmap(t(M.Progeny), cluster_columns = F, name = "Progeny_score")
-hmap= Heatmap(t(M.Progeny)[, c(1,2,4,3)],cluster_rows = T,
+plot.map= t(M.Progeny)[, c(1,2,4,3)]
+hmap= Heatmap(plot.map,cluster_rows = T,
 
         cluster_columns = F,
         name = "PROGENy \n score",
@@ -296,12 +297,17 @@ hmap= Heatmap(t(M.Progeny)[, c(1,2,4,3)],cluster_rows = T,
         row_names_gp = gpar(fontsize = 10),
         column_names_gp = gpar(fontsize = 10),
         rect_gp = gpar(col = "darkgrey", lty = 1, size= 0.1),
-        show_row_dend = FALSE
-        )
+        show_row_dend = FALSE,
+        cell_fun = function(j, i, x, y, w, h, fill) {
+          if(abs(plot.map[i, j]) > 2) {
+            grid.text("*", x, y)
+          }
+        })
+
 hmap
 pdf("output/figures/main/Fig4/progeny_study_contrast.pdf",
-    width= 2.6,
-    height= 4)
+    width= 2.3,
+    height= 3.5)
 print(hmap)
 dev.off()
 
@@ -385,6 +391,8 @@ hfpef= map(unique(trees$HFpEF$resolutions.$res.7), function(x){
                          "DISEASE"))  %>%
     mutate(study= factor(study, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
            gset = clean_names_plot(gset))%>%
+    group_by(gset, study)%>%
+    slice_min(order_by = p_value) %>%
     ggplot(., aes(x=  study,
                   y= gset, fill= -log10(corr_p_value)))+
     geom_tile(color = "darkgrey")+
@@ -415,6 +423,8 @@ angii= map(unique(trees$AngII$resolutions.$res.7), function(x){
       gset= clean_names(gset))%>%
     mutate(study= factor(study, levels= c("HFpEF", "AngII", "MI_early", "MI_late")),
            gset = clean_names_plot(gset))%>%
+    group_by(gset, study)%>%
+    slice_min(order_by = p_value) %>%
     ggplot(., aes(x=  study,
                   y= gset, fill= -log10(corr_p_value)))+
     geom_tile(color = "darkgrey")+
@@ -455,8 +465,8 @@ unify_axis(p.2)
 dev.off()
 
 pdf("output/figures/main/Fig4/msig.hfpef_all2.pdf",
-    width= 5.,
-    height= 2.2)
+    width= 4.5,
+    height= 1.7)
 (hfpef[[1]])
 dev.off()
 

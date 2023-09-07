@@ -89,7 +89,7 @@ int_seu <- FindNeighbors(int_seu, reduction = "pca", dims = 1:20)
 int_seu <- FindClusters(int_seu, resolution = 0.5)
 
 saveRDS(inte_seu, paste0(directory, "data/circ_MI/integrated_seurat_circMI.rds"))
-
+inte_seu = readRDS(paste0(directory, "data/circ_MI/integrated_seurat_circMI.rds"))
 
 # identify fibroblasts ---------------------------------------------------------------------------------------------
 
@@ -116,20 +116,23 @@ DimPlot(seu, group.by = "treatment")
 #rerun  a coarse clustering to identify major celltype
 DefaultAssay(seu) = "integrated"
 
-seu <-RunPCA(seu,  npcs = 23, verbose = FALSE)
-seu <- RunUMAP(seu, reduction = "pca", dims = 1:23)
+#seu <-RunPCA(seu,  npcs = 23, verbose = FALSE)
+#seu <- RunUMAP(seu, reduction = "pca", dims = 1:23)
 seu <- FindNeighbors(seu, reduction = "pca", dims = 1:23)
 seu <- FindClusters(seu, resolution = seq(0.1,0.5,0.1))
 
 Idents(seu) =  "integrated_snn_res.0.1"
+DimPlot(seu)
 
+saveRDS(seu, paste0(directory, "data/circ_MI/integrated_seurat_circMI2.rds"))
 
 #seu = readRDS("data/circ_MI/integrated_seurat_circMI_processed.rds")
 
 library(cowplot)
-p1= DimPlot(seu, cols = col.set)
+p1= DimPlot(seu,# cols = col.set,
+            group.by = "integrated_snn_res.0.1")
 p2= FeaturePlot(seu, features= c("Gsn", "Col1a1", "Pdgfra"), ncol= 3)
-p3= DotPlot(seu, features= c("Gsn", "Col1a1", "Pdgfra"))
+p3= DotPlot(seu, features= c("Gsn", "Col1a1", "Pdgfra"), group.by = "integrated_snn_res.0.1")
 
 p.c= plot_grid(plot_grid(p1, p3), p2, ncol = 1)
 pdf("output/figures/fibro_subset_AngII.pdf",

@@ -12,7 +12,8 @@
 
 library(tidyverse)
 library(decoupleR)
-
+library(cowplot)
+library(edgeR)
 # gex.objs
 gex.obj= readRDS("output/bulk_mouse_obj.rds")
 
@@ -23,11 +24,21 @@ sep.obj= readRDS("output/bulk_mouse_fit.rds")
 expr_plot = function(gene, gex.obj){
   enframe(gex.obj$exp[gene,], name="sample")%>%
     left_join(gex.obj$meta)%>%
+    mutate(Group = factor(Group,
+                          levels= c("Control",
+                                    "10-weeks HFpEF",
+                                    "15-weeks HFpEF")))%>%
     ggplot(., aes(x= Group, y= value))+
     #geom_jitter()+
     geom_boxplot(width= 0.5, alpha = 0.8)+
-    theme(axis.text.x = element_text(angle= 60, hjust= 1))+
-    ggpubr::stat_compare_means(comparisons = list(c(1,2), c(2,3), c(1,3)))
+    #geom_jitter()+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle= 60, hjust= 1),
+          axis.text = element_text(size= 11, color ="black"),
+          panel.border = element_rect(fill = NA, color ="black", size = 1))+
+    ggtitle(gene)+
+    labs(x= "", y= "normalized expression")
+    #ggpubr::stat_compare_means(comparisons = list(c(1,2), c(2,3), c(1,3)))
 
   # enframe(gex.obj$exp[gene,], name="sample")%>%
   #   left_join(gex.obj$meta)%>%
@@ -38,8 +49,47 @@ expr_plot = function(gene, gex.obj){
   #   ggpubr::stat_compare_means(comparisons = list(c(1,2)))
   #
 }
+library(cowplot)
+p1= plot_grid(
+expr_plot(gene = "Angptl4", gex.obj),
+expr_plot("Postn", gex.obj),
+expr_plot(gene = "Col1a1", gex.obj),
+expr_plot(gene = "Col1a2", gex.obj),
+expr_plot(gene = "Col4a1", gex.obj),
+expr_plot(gene = "Col4a2", gex.obj),
+expr_plot(gene = "Col15a1", gex.obj),
+expr_plot(gene = "Sparc", gex.obj),
+expr_plot(gene = "Spp1", gex.obj)
+)
 
-expr_plot("Angptl4", gex.obj)
+p1
+
+pdf("output/figures/supp/bulk_single_genes_exp.pdf",
+    width= 4.5,
+    height= 9)
+p1
+dev.off()
+
+
+p2= plot_grid(
+  expr_plot(gene = "Igfbp3", gex.obj),
+  expr_plot("Pcsk6", gex.obj),
+  expr_plot(gene = "Perp", gex.obj)
+)
+
+p2
+
+genes= c("Angptl4", "Postn", "Col1a1", "Col4a1", "Col15a1", "Spp1")
+wk10 = topTable(sep.obj$older$time,
+                coef = "k10",
+                adjust.method = "BH",number = Inf)
+wk15 = topTable(sep.obj$older$time, coef = "wk15",adjust.method = "BH",number = Inf)
+#wk15 = topTable(sep.obj$older$w15, coef = "wk15",adjust.method = "BH",number = Inf)
+plot(wk10[genes,"t"] )
+wk15[genes,]
+wk10[genes,]
+wk15[c("Igfbp3", "Pcsk6", "Perp"), ]
+wk10[c("Igfbp3", "Pcsk6", "Perp"), ]
 
 #genesets:
 gene_sigs= readRDS("output/fib_integration/marker_list/DEG_per_study_in_fibs_SET_downsampled.rds")
@@ -115,7 +165,6 @@ p2= sep.decoupled%>%
   coord_flip()
 
 p2
-
 
 mats= cbind(sep.obj$older$w10$t, sep.obj$older$w15$t, sep.obj$older$hf$t)
 fc= sep.obj$`5wk`[names(sep.obj$`5wk`) %in% rownames(mats)]
@@ -229,6 +278,94 @@ plot_grid(plotlist = p_list$MI_late)
 
 dev.off()
 
+
+
+# plot 10 and 15 weeks ------------------------------------------------------------------------
+mats= sep.obj$older$time$t
+colnames(mats)= c("10weeks_HFpEF", "15weeks_HFpEF")
+
+#remove the MI signature (whihc is now mi early and late)
+net= net %>% filter(source != "MI")
+#enrich all
+sep.decoupled= decouple(mat =mats,
+                        network = net,
+                        statistics = "ulm")
+
+
+p2= sep.decoupled%>%
+  filter(statistic=="ulm")%>%
+  ggplot(., aes(x=source , y= score, shape = condition, color = -log10(p_value)))+
+  geom_point()+
+  #facet_grid(rows= vars(condition))+coord_flip()+
+  theme_bw()+
+  ggtitle("hfpef_vs_ct")+
+  coord_flip()
+p2
+#plot separate
+names= list("NABA"= names(naba),
+            "Fib_sig"= names(gene_sigs$total),
+            "Fib_state"= names(int.genesets)
+)
+
+
+p_list= map(names, function(x){
+  #print(x)
+ df= sep.decoupled%>%
+    filter(statistic=="ulm",
+           source %in% x)%>%
+    mutate(sigs= ifelse(p_value<0.01, "**",
+                        ifelse(p_value
+                               <0.05, "*", "ns")))
+
+ #plot points:
+   df %>%ggplot(., aes(x=source , y= score, shape = condition,
+                  #color = -log10(p_value),
+                  color = sigs
+    ))+
+    geom_point(size= 4)+
+    #facet_grid(rows= vars(condition))+coord_flip()+
+    theme_bw()+
+    ggtitle("")+
+    coord_flip()+
+    geom_hline(yintercept = 0, linetype= 3)+
+    theme(axis.text = element_text(size= 11, color= "black"),
+          axis.text.x = element_text(angle= 45, hjust=1))
+
+
+  df %>% ggplot(., aes(x=source , y= score, fill = condition,
+                #color = -log10(p_value),
+                #alpha = rev(sigs)
+  ))+
+    geom_bar(stat="identity", position=position_dodge(), color ="black")+
+    #facet_grid(rows= vars(condition))+coord_flip()+
+    theme_bw()+
+    ggtitle("")+
+    coord_flip()+
+    geom_hline(yintercept = 0, linetype= 3)+
+    theme(axis.text = element_text(size= 11, color= "black"),
+          axis.text.x = element_text(angle= 45, hjust=1),
+          panel.border = element_rect(colour = "black", fill=NA, size=1))
+})
+pdf("output/figures/supp/bulk_fib_sigs1.pdf",
+    width =5,
+    height= 4
+)
+p_list[1]
+dev.off()
+
+pdf("output/figures/supp/bulk_fib_sigs2.pdf",
+    width =5,
+    height= 2
+)
+p_list[2]
+dev.off()
+
+pdf("output/figures/supp/bulk_fib_sigs3.pdf",
+    width =5,
+    height= 3
+)
+p_list[3]
+dev.off()
 
 ### compare t-stats in bulk with eta.sq
 df.aov2= readRDS( file = "output/aov.df.rds")
